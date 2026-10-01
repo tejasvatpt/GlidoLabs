@@ -41,7 +41,9 @@ def save(job: Job, **changes) -> Job:
     for key, value in changes.items():
         setattr(job, key, value)
     job_dir(job.id).mkdir(parents=True, exist_ok=True)
-    (job_dir(job.id) / "job.json").write_text(job.model_dump_json(indent=2), encoding="utf-8")
+    tmp = job_dir(job.id) / "job.json.tmp"
+    tmp.write_text(job.model_dump_json(indent=2), encoding="utf-8")
+    tmp.replace(job_dir(job.id) / "job.json")  # atomic, so status polls never read a half-written file
     return job
 
 

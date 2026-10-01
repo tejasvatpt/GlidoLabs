@@ -49,7 +49,7 @@ Adding AssemblyAI, Sarvam or a forced aligner means adding one class with `trans
 ### Caption intelligence (pause-aware breaks + audio-energy hooks)
 
 1. **Features** per word from the WAV: loudness (RMS dB over 25 ms frames), stretch (seconds per letter), pause before, lexical weight (length, not a stopword). Loudness, stretch and pause become robust z-scores (median/MAD) relative to the speaker.
-2. **Score** = weighted sum (weights in `style.json`). Top words become **hooks**, limited by a per-minute budget and a minimum gap; strong content words become **emphasis**; the rest are normal. Optional `force_hooks` lets a user pin keywords. No word is hard-coded.
+2. **Score** = weighted sum (weights in `style.json`); loudness is measured against neighbouring words, because emphasis is local contrast. Top words become **hooks** if they are said only once in the video (a repeated stem is not a hook), within a per-minute budget and minimum gap; strong content words become **emphasis**; the rest are normal. Optional `force_hooks` lets a user pin keywords. No word is hard-coded.
 3. **Grouping** breaks captions on pauses ≥ 0.35 s, sentence punctuation, max words/characters, and around hooks; then merges orphans, closes small gaps (no flicker), guarantees hook read time and balances two-line breaks.
 
 ### Eclipse style
@@ -76,12 +76,24 @@ Benchmarks quoted by model authors use different test sets and are not comparabl
 
 ## ASR check on the reference
 
-<!-- filled from tests/test_transcription.py -->
+First 20 s of `Eclipse.mp4`, ground truth typed from its burnt-in captions (`backend/tests/data/eclipse_first_20s.txt`), CPU inference:
+
+| Check | Result |
+| --- | --- |
+| Script | Roman only, no Devanagari |
+| Word error rate | 0.286 (most errors are spelling variants: *mainne/maine, pahli/pehli, mangavaaya/mangwaya, yah/ye*) |
+| Word timing vs the reference's highlight changes | within about ±0.2 s on 18 of 20 checked words (reference sampled every 0.5 s) |
+| Speed | ~75 s for 20 s of audio on a laptop CPU, including model load |
+
+Apex ships without Whisper's word-timing heads, so `ApexSource` reuses large-v3-turbo's (same 32-encoder/4-decoder architecture).
+
+On the full reference the engine picks hooks at 11.9 s (*obsidien*; Eclipse shows OBSIDIAN at ~12 s) and 22.0 s (*meen*, Hindi for Pisces; Eclipse shows PISCES there) without any word list.
 
 ## Samples
 
 - `samples/demo_input.mp4` — clean clip: Hinglish script read by an offline Indian-English voice over drone footage (`samples/make_tts_sample.ps1`).
-- `samples/demo_output.mp4` — rendered by the app.
+- `samples/demo_output.mp4` — rendered by the app through the script path (exact script wording).
+- `samples/demo_output_asr.mp4` — the same clip through the ASR path (no script given).
 
 The Eclipse reference already has captions burned in, so it is used only as the style reference.
 
