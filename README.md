@@ -8,7 +8,7 @@ Video ─► FFmpeg ─► ASR / script ─► Word[] + timings ─► features 
 
 ## Quick start
 
-Requirements: Python 3.12+, Node 20+, FFmpeg on PATH. An NVIDIA GPU is optional (CPU works, slower).
+Requirements: Python 3.12+, Node 20+, FFmpeg on PATH. An NVIDIA GPU is strongly recommended: install the CUDA build of PyTorch, e.g. `pip install torch --index-url https://download.pytorch.org/whl/cu126` (a 30 s clip transcribes in ~15 s on an RTX 2050 with 2.3 GB VRAM; CPU fp32 needs ~3 GB RAM and minutes).
 
 ```bash
 cp .env.example .env
@@ -90,9 +90,9 @@ First 20 s of `Eclipse.mp4`, ground truth typed from its burnt-in captions (`bac
 | Script | Roman only, no Devanagari |
 | Word error rate | 0.286 (most errors are spelling variants: *mainne/maine, pahli/pehli, mangavaaya/mangwaya, yah/ye*) |
 | Word timing vs the reference's highlight changes | within about ±0.2 s on 18 of 20 checked words (reference sampled every 0.5 s) |
-| Speed | ~75 s for 20 s of audio on a laptop CPU, including model load |
+| Speed | 3.9 s for 20 s of audio on an RTX 2050 (fp16, 2.3 GB VRAM); ~60 s on CPU |
 
-Apex ships without Whisper's word-timing heads, so `ApexSource` reuses large-v3-turbo's (same 32-encoder/4-decoder architecture).
+Apex ships without Whisper's word-timing heads, so `ApexSource` reuses large-v3-turbo's (same 32-encoder/4-decoder architecture). Word timing only needs decoder cross-attention, so encoder attention maps are switched off; that cut VRAM from 5.2 GB to 2.3 GB and made a 30 s clip 7x faster on a 4 GB card.
 
 On the full reference the engine picks hooks at 11.9 s (*obsidien*; Eclipse shows OBSIDIAN at ~12 s) and 22.0 s (*meen*, Hindi for Pisces; Eclipse shows PISCES there) without any word list.
 
@@ -106,6 +106,6 @@ The Eclipse reference already has captions burned in, so it is used only as the 
 
 ## Limitations
 
-- CPU transcription of a 1-minute clip takes a few minutes; a CUDA build of PyTorch makes it seconds.
+- Without a GPU, transcription runs in fp32 on CPU and needs ~3 GB of free RAM.
 - Whisper timestamps can drift by ~0.1–0.2 s on fast speech; a forced aligner is the next upgrade.
 - Hook selection is heuristic; very flat delivery yields fewer hooks (tune `hookThreshold`).

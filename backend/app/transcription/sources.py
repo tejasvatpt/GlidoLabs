@@ -38,6 +38,10 @@ class ApexSource:
         )
         # Apex ships without word-timing heads; it shares large-v3-turbo's architecture, so reuse its heads
         pipe.model.generation_config.alignment_heads = TURBO_ALIGNMENT_HEADS
+        # word timing only needs decoder cross-attention; encoder attention maps would cost ~3 GB of VRAM
+        encoder = pipe.model.model.encoder
+        encoder_forward = encoder.forward
+        encoder.forward = lambda *args, **kwargs: encoder_forward(*args, **{**kwargs, "output_attentions": False})
         return pipe
 
     def transcribe(self, wav: Path, script: str | None = None) -> Transcript:
