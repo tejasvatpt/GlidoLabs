@@ -8,7 +8,9 @@ Video ─► FFmpeg ─► ASR / script ─► Word[] + timings ─► features 
 
 ## Quick start
 
-Requirements: Python 3.12+, Node 20+, FFmpeg on PATH. An NVIDIA GPU is strongly recommended: install the CUDA build of PyTorch, e.g. `pip install torch --index-url https://download.pytorch.org/whl/cu126` (a 30 s clip transcribes in ~15 s on an RTX 2050 with 2.3 GB VRAM; CPU fp32 needs ~3 GB RAM and minutes).
+Requirements: Python 3.12+, Node 20+, FFmpeg on PATH, ideally an NVIDIA GPU with the CUDA build of PyTorch
+(`pip install torch --index-url https://download.pytorch.org/whl/cu126`). A 30 s clip transcribes in ~15 s on an
+RTX 2050 (2.3 GB VRAM); on CPU it needs ~3 GB of free RAM and a few minutes.
 
 ```bash
 cp .env.example .env
@@ -16,96 +18,101 @@ python -m venv backend/.venv
 backend/.venv/Scripts/pip install -r backend/requirements.txt   # macOS/Linux: backend/.venv/bin/pip
 npm install
 npm run build --workspace frontend
-cd backend && .venv/Scripts/uvicorn app.main:app --port 8000
 ```
 
-Windows PowerShell (5.1 has no `&&`):
+Run (Windows PowerShell; 5.1 has no `&&`):
 
 ```powershell
 cd backend
 .\.venv\Scripts\uvicorn app.main:app --port 8000
 ```
 
-Open http://127.0.0.1:8000. The first transcription downloads the Apex model (~1.6 GB) from Hugging Face.
-
-For development, run `npm run dev --workspace frontend` (Vite on :5173, proxies the API) and `npm run studio --workspace renderer` (Remotion Studio for tuning the style).
-
+Open http://127.0.0.1:8000. The server loads the Apex model at startup (~1.6 GB download the first time).
+Development: `npm run dev --workspace frontend` (Vite, proxies the API) and `npm run studio --workspace renderer`.
 Tests: `cd backend && .venv/Scripts/python -m pytest` (`-m "not slow"` skips the model test).
 
-## How it works
+## Structure
 
-| Layer | Responsibility | Code |
-| --- | --- | --- |
-| Media | validate, ffprobe metadata, 16 kHz mono WAV | `backend/app/media/` |
-| Transcription | `Word[]` with timings from a replaceable source | `backend/app/transcription/` |
-| Caption engine | features → emphasis/hook roles → caption groups → `captions.json` | `backend/app/captions/` |
-| Style | every visual, animation and engine value | `styles/eclipse/style.json` |
-| Renderer | draws captions over the video, frame-exact | `renderer/src/CaptionedVideo.tsx` |
-| API | jobs, upload, status, export, download | `backend/app/main.py`, `jobs.py` |
-| UI | upload → progress → live preview → export | `frontend/src/App.tsx` |
+```
+backend/app/
+  main.py, jobs.py, config.py      API, one background worker, settings + style loading
+  media/        probe.py (ffprobe, WAV)  ingest.py (validate, job folder)  audio.py (loudness, voiced frames)
+  transcription/ sources.py (Apex ASR, script path)  cleanup.py (respell, snap to speech, align)  spelling.json
+  captions/     features.py → emphasis.py → segmenter.py (+ layout.py text measuring) → build.py
+  rendering.py  runs renderer/render.mjs
+renderer/src/   CaptionedVideo.tsx (the Eclipse renderer), Root.tsx, types.ts
+frontend/src/   App.tsx (upload → progress → live preview → export)
+styles/eclipse/ style.json + bundled OFL fonts
+```
 
-The modules only talk through data. The renderer reads `captions.json` + `style.json` + the video and knows nothing about ASR or scoring.
+The renderer only reads `captions.json` + `style.json` + the video; it knows nothing about ASR or scoring.
 
 ### Two input paths
 
-- **Uploaded video (no script)** → `ApexSource`: Whisper-Hindi2Hinglish-Apex transcribes in Roman script with word timestamps.
-- **Glido-generated video (script known)** → `ScriptSource`: caption text is the script, word for word; audio only supplies timing (script words are matched onto heard-word timestamps, gaps interpolated). In production, the TTS engine's own word-boundary output plugs in here and no ASR runs at all.
+- **Uploaded video (no script):** Whisper-Hindi2Hinglish-Apex transcribes in Roman script with word timestamps, then
+  `spelling.json` maps Apex spellings to common social-media Hinglish (*mainne → maine, yah → ye, lie → liye*).
+- **Glido-generated video (script known):** caption text is the script word for word; audio only supplies timing
+  (script words are matched onto heard-word timestamps). In production the TTS engine's word boundaries plug in here.
 
-Adding AssemblyAI, Sarvam or a forced aligner means adding one class with `transcribe(wav, script) -> Transcript`.
+Both paths snap every word onto voiced audio (`media/audio.py`), so no caption appears over silence, even if speech
+starts seconds into the video. Another ASR (AssemblyAI, Sarvam, a forced aligner) only has to return `Word[]`.
 
-### Caption intelligence (pause-aware breaks + audio-energy hooks)
+### Caption intelligence
 
-1. **Features** per word from the WAV: loudness (RMS dB over 25 ms frames), stretch (seconds per letter), pause before, lexical weight (length, not a stopword). Loudness, stretch and pause become robust z-scores (median/MAD) relative to the speaker.
-2. **Score** = weighted sum (weights in `style.json`); loudness is measured against neighbouring words, because emphasis is local contrast. Top words become **hooks** if they are said only once in the video (a repeated stem is not a hook), within a per-minute budget and minimum gap; strong content words become **emphasis**; the rest are normal. Optional `force_hooks` lets a user pin keywords. No word is hard-coded.
-3. **Grouping** breaks captions on pauses ≥ 0.35 s, sentence punctuation, max words/characters, and around hooks; then merges orphans, closes small gaps (no flicker), guarantees hook read time and balances two-line breaks.
+1. **Features** per word: loudness relative to neighbouring words, stretch (seconds per letter), pause before, and
+   lexical salience (length + English rarity from `wordfreq`; words barely attested in English, i.e. romanised Hindi, stay neutral).
+2. **Roles:** weighted score from `style.json`. Prosody can promote a word but never demote it (speakers often say key
+   words quieter). A **hook** must be a strong content word said only once in the video, within a per-minute budget and
+   a minimum gap; strong content words become **emphasis**. Optional `force_hooks` pins keywords. No word lists of hooks.
+3. **Grouping:** breaks on pauses ≥ 0.35 s, sentence punctuation, max words, rendered width and around hooks; merges
+   orphans, closes short gaps, guarantees hook read time. Line breaks use pixel widths measured with the real fonts.
 
-### Eclipse style
+### Eclipse style (measured frame by frame)
 
-Measured from the reference frame by frame and stored as fractions of the frame, so it works at any resolution:
+- Captions: Montserrat Bold, 5.8% of width, baseline at 80%; the spoken word turns yellow with a soft pill only
+  while it is spoken; emphasis words switch to Anton uppercase. Groups and highlights switch on hard cuts.
+- Hooks: Anton uppercase fitted to 86% width near the top; yellow on a translucent yellow box for 567 ms (17 frames
+  at 30 fps), then a hard cut to white without the box.
 
-- Normal captions: Montserrat Bold, white, ~5.8% of width, baseline at 80% height; active word turns yellow with a soft pill; emphasis words switch to Anton uppercase.
-- Hooks: Anton uppercase fitted to ~86% width near the top, pop in yellow on a translucent yellow box, then settle to white as the box fades.
-
-A new style is a new folder in `styles/` with its own `style.json` and fonts; no code changes.
+All values are fractions of the frame in `styles/eclipse/style.json`; a new style is a new folder, no code changes.
 
 ## Technology decisions
 
-| Area | Current (free, local) | Premium upgrade | Why this choice |
+| Area | Current (free, local) | Premium upgrade | Why |
 | --- | --- | --- | --- |
-| ASR | [Oriserve Whisper-Hindi2Hinglish-Apex](https://huggingface.co/Oriserve/Whisper-Hindi2Hinglish-Apex) (Apache-2.0) | ElevenLabs Scribe, AssemblyAI, Sarvam Saaras | Only open model found that outputs Roman-script Hinglish; fits 4 GB VRAM in fp16 |
-| Word timing | Whisper word timestamps; script mapping | CTC forced alignment (MMS), TTS word boundaries | No extra model download; aligner is a drop-in source |
-| Rendering | [Remotion](https://www.remotion.dev/docs/license) 4.x (pinned) | Remotion Lambda for cloud renders | Same React composition for live preview and MP4; free for individuals and companies of up to 3 people |
+| ASR | [Whisper-Hindi2Hinglish-Apex](https://huggingface.co/Oriserve/Whisper-Hindi2Hinglish-Apex) (Apache-2.0) | ElevenLabs Scribe, AssemblyAI, Sarvam Saaras | Only open model found that outputs Roman Hinglish; fits a 4 GB GPU |
+| Word timing | Whisper timestamps + voiced-audio snapping; script mapping | CTC forced alignment, TTS word boundaries | No extra model |
+| Rendering | [Remotion](https://www.remotion.dev/docs/license) 4.x (pinned) | Remotion Lambda | One React composition for live preview and MP4; free for individuals and companies of up to 3 people |
 | Media | FFmpeg | — | Probe, audio, encode |
 | Fonts | Montserrat, Anton (SIL OFL, bundled) | — | Closest open match to Eclipse |
 | Storage | Local `storage/jobs/` (24 h cleanup) | S3 / R2 | No database needed |
 
-Benchmarks quoted by model authors use different test sets and are not comparable with each other; the measurement below is our own small test.
+Model-author benchmarks use different test sets and are not comparable; the numbers below are our own small test.
 
-## ASR check on the reference
+## Results on the reference
 
-First 20 s of `Eclipse.mp4`, ground truth typed from its burnt-in captions (`backend/tests/data/eclipse_first_20s.txt`), CPU inference:
+First 20 s of `Eclipse.mp4`, ground truth typed from its burnt-in captions (`backend/tests/data/eclipse_first_20s.txt`):
 
 | Check | Result |
 | --- | --- |
-| Script | Roman only, no Devanagari |
-| Word error rate | 0.286 (most errors are spelling variants: *mainne/maine, pahli/pehli, mangavaaya/mangwaya, yah/ye*) |
-| Word timing vs the reference's highlight changes | within about ±0.2 s on 18 of 20 checked words (reference sampled every 0.5 s) |
-| Speed | 3.9 s for 20 s of audio on an RTX 2050 (fp16, 2.3 GB VRAM); ~60 s on CPU |
+| Script | Roman only |
+| Word error rate | 0.286 raw Apex → 0.036 after the spelling map (the map was partly built from this clip, so expect less on new videos) |
+| Word timing | within ~±0.2 s of the reference's highlight changes |
+| Speed | 3.9 s for 20 s of audio on an RTX 2050 |
+| Hooks on the full clip | OBSIDIAN (11.9 s) and PISCES (22.7 s), the same hooks Eclipse uses, plus FLEXIBLE (Eclipse emphasises it) |
 
-Apex ships without Whisper's word-timing heads, so `ApexSource` reuses large-v3-turbo's (same 32-encoder/4-decoder architecture). Word timing only needs decoder cross-attention, so encoder attention maps are switched off; that cut VRAM from 5.2 GB to 2.3 GB and made a 30 s clip 7x faster on a 4 GB card.
-
-On the full reference the engine picks hooks at 11.9 s (*obsidien*; Eclipse shows OBSIDIAN at ~12 s) and 22.0 s (*meen*, Hindi for Pisces; Eclipse shows PISCES there) without any word list.
+Apex ships without Whisper's word-timing heads, so it reuses large-v3-turbo's (same architecture). Encoder attention
+maps are switched off during word timing, cutting VRAM from 5.2 to 2.3 GB.
 
 ## Samples
 
-- `samples/demo_input.mp4` — clean clip: Hinglish script read by an offline Indian-English voice over drone footage (`samples/make_tts_sample.ps1`).
-- `samples/demo_output.mp4` — rendered by the app through the script path (exact script wording).
-- `samples/demo_output_asr.mp4` — the same clip through the ASR path (no script given).
+- `samples/demo_input.mp4` — Hinglish script read by an offline Indian-English voice over drone footage (`samples/make_tts_sample.ps1`).
+- `samples/demo_output.mp4` — rendered through the script path; `samples/demo_output_asr.mp4` — through the ASR path.
 
 The Eclipse reference already has captions burned in, so it is used only as the style reference.
 
 ## Limitations
 
-- Without a GPU, transcription runs in fp32 on CPU and needs ~3 GB of free RAM.
-- Whisper timestamps can drift by ~0.1–0.2 s on fast speech; a forced aligner is the next upgrade.
-- Hook selection is heuristic; very flat delivery yields fewer hooks (tune `hookThreshold`).
+- The spelling map covers common Apex spellings only; new words keep Apex's spelling.
+- Whisper timestamps can drift ~0.1–0.2 s on fast speech; a forced aligner is the next upgrade.
+- Hooks are heuristic; very flat delivery or very short clips yield fewer hooks (tune `hookThreshold`).

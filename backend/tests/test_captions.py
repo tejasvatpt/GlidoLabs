@@ -1,15 +1,17 @@
 import numpy as np
 import soundfile as sf
 
-from app.captions.build import load_style
 from app.captions.emphasis import score_words
-from app.captions.features import word_features
+from app.captions.features import lexical, word_features
+from app.captions.layout import TextMeasure
 from app.captions.models import EngineConfig, FeaturedWord, ScoredWord
 from app.captions.segmenter import segment
-from app.transcription.cleanup import clean_words
+from app.config import load_style
 from app.transcription.models import Word
 
-CFG = EngineConfig(**load_style("eclipse")["engine"])
+STYLE = load_style("eclipse")
+CFG = EngineConfig(**STYLE["engine"])
+MEASURE = TextMeasure(STYLE, 1080)
 
 
 def scored(spec):
@@ -24,34 +26,38 @@ def flat(texts, step=0.3, start=0.0):
 
 def test_pause_breaks_group():
     words = flat(["bhai", "ye", "kitna"]) + flat(["pyara", "hai"], start=1.5)
-    assert [len(g.words) for g in segment(words, CFG)] == [3, 2]
+    assert [len(g.words) for g in segment(words, CFG, MEASURE)] == [3, 2]
 
 
 def test_max_words_splits():
-    groups = segment(flat(["ek", "do", "teen", "char", "paanch", "chhe", "saat", "aath"]), CFG)
+    groups = segment(flat(["ek", "do", "teen", "char", "paanch", "chhe", "saat", "aath"]), CFG, MEASURE)
     assert all(len(g.words) <= CFG.max_words for g in groups) and len(groups) == 2
 
 
 def test_sentence_punctuation_breaks():
-    groups = segment(flat(["store", "se.", "Aur", "maine"]), CFG)
+    groups = segment(flat(["store", "se.", "Aur", "maine"]), CFG, MEASURE)
     assert [g.words[-1].text for g in groups] == ["se.", "maine"]
 
 
 def test_hook_is_own_layer_and_min_duration():
     words = scored([("black", 0, 0.3, "normal"), ("obsidian", 0.32, 0.6, "hook"), ("aur", 0.62, 0.8, "normal")])
-    groups = segment(words, CFG)
+    groups = segment(words, CFG, MEASURE)
     hook = next(g for g in groups if g.layer == "hook")
     assert hook.words[0].text == "obsidian" and hook.end - hook.start >= CFG.hook_min_s
 
 
 def test_no_flicker_between_close_groups():
-    a, b = segment(flat(["bhai", "ye", "kitna", "pyara", "lag", "raha"]), CFG)
+    a, b = segment(flat(["bhai", "ye", "kitna", "pyara", "lag", "raha"]), CFG, MEASURE)
     assert a.end == b.start
 
 
-def test_long_group_breaks_into_two_lines():
-    g = segment(flat(["mangwaya", "tha", "apne", "liye."]), CFG)[0]
-    assert len(g.lines) == 2 and sum(map(len, g.lines)) == 4
+def test_lines_break_by_rendered_width():
+    short, long = segment(flat(["Maine", "life", "mein"]), CFG, MEASURE)[0], segment(flat(["specifically", "unhi", "rashiyon", "waalon"]), CFG, MEASURE)[0]
+    assert len(short.lines) == 1 and len(long.lines) == 2 and sum(map(len, long.lines)) == 4
+
+
+def test_rare_long_words_score_higher_lexically():
+    assert lexical("obsidian", 4) > lexical("specifically", 4) > lexical("website", 4) > 0 == lexical("hai", 4)
 
 
 def test_hooks_are_spaced_and_budgeted():
@@ -86,10 +92,3 @@ def test_loud_slow_word_scores_higher(tmp_path):
              Word(text="loud", start=1.2, end=1.9)]
     f = word_features(words, tmp_path / "a.wav")
     assert f[2].energy > f[0].energy + 15 and f[2].energy_z > 0 and f[2].stretch_z > 0
-
-
-def test_cleanup_orders_and_attaches_punctuation():
-    words = clean_words([Word(text="hai", start=1.0, end=1.2), Word(text=".", start=1.2, end=1.25),
-                         Word(text="yaar", start=1.1, end=None)], duration=1.3)
-    assert [w.text for w in words] == ["hai.", "yaar"]
-    assert words[1].start >= words[0].end and words[1].end <= 1.3

@@ -9,15 +9,14 @@ from app.transcription.models import Transcript, Word
 client = TestClient(app)
 
 
-class FakeSource:
-    def transcribe(self, wav, script=None):
-        words = [Word(text=t, start=0.1 + i * 0.3, end=0.35 + i * 0.3) for i, t in enumerate("bhai ye kitna pyara hai".split())]
-        return Transcript(language="hinglish", source="fake", words=words)
+def fake_transcribe(wav, script=None):
+    words = [Word(text=t, start=0.1 + i * 0.3, end=0.35 + i * 0.3) for i, t in enumerate("bhai ye kitna pyara hai".split())]
+    return Transcript(language="hinglish", source="fake", words=words)
 
 
 def test_upload_to_ready_and_captions(tmp_path, monkeypatch):
     monkeypatch.setattr(jobs.settings, "storage_dir", tmp_path)
-    monkeypatch.setattr(jobs, "get_source", lambda script: FakeSource())
+    monkeypatch.setattr(jobs, "transcribe", fake_transcribe)
     monkeypatch.setattr(jobs.worker, "submit", lambda fn, *a: fn(*a))
     clip = tmp_path / "clip.mp4"
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=320x240:r=25:d=2",

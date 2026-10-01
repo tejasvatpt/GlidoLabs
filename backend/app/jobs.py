@@ -10,12 +10,12 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.captions.build import build_captions, load_style
-from app.config import settings
+from app.captions.build import build_captions
+from app.config import load_style, settings
 from app.media.ingest import ingest
 from app.media.probe import MediaError
 from app.rendering import render_video
-from app.transcription.sources import get_source
+from app.transcription.sources import transcribe
 
 Status = Literal["queued", "extracting", "transcribing", "captioning", "ready", "rendering", "done", "error"]
 log = logging.getLogger("glido")
@@ -43,7 +43,12 @@ def save(job: Job, **changes) -> Job:
     job_dir(job.id).mkdir(parents=True, exist_ok=True)
     tmp = job_dir(job.id) / "job.json.tmp"
     tmp.write_text(job.model_dump_json(indent=2), encoding="utf-8")
-    tmp.replace(job_dir(job.id) / "job.json")  # atomic, so status polls never read a half-written file
+    for _ in range(20):  # atomic swap; Windows refuses it while a status poll has the file open
+        try:
+            tmp.replace(job_dir(job.id) / "job.json")
+            break
+        except PermissionError:
+            time.sleep(0.05)
     return job
 
 
@@ -68,7 +73,7 @@ def process(job: Job, upload: Path):
         media = ingest(upload, job_id=job.id)
         upload.unlink(missing_ok=True)
         save(job, status="transcribing", progress=0.2)
-        transcript = get_source(job.script).transcribe(media.audio_path, job.script)
+        transcript = transcribe(media.audio_path, job.script)
         if not transcript.words:
             raise MediaError("No speech was detected in this video.")
         (media.job_dir / "transcript.json").write_text(transcript.model_dump_json(indent=2), encoding="utf-8")

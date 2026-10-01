@@ -1,16 +1,15 @@
-"""Per-word prosody features from the 16 kHz WAV: loudness, stretch, pause, lexical weight."""
+"""Per-word features: local loudness contrast, stretch, pause before, and lexical salience."""
 
 from functools import cache
 from pathlib import Path
 
 import numpy as np
-import soundfile as sf
+from wordfreq import zipf_frequency
 
 from app.captions.models import FeaturedWord
+from app.media.audio import FRAME_S, energy_db
 from app.transcription.cleanup import core
 from app.transcription.models import Word
-
-SAMPLE_RATE, FRAME, HOP = 16000, 400, 160  # 25 ms frames every 10 ms
 
 
 @cache
@@ -18,12 +17,15 @@ def stopwords() -> frozenset[str]:
     return frozenset((Path(__file__).parent / "stopwords.txt").read_text(encoding="utf-8").split())
 
 
-def energy_db(wav: Path) -> np.ndarray:
-    audio, _ = sf.read(wav, dtype="float32")
-    audio = audio.mean(axis=1) if audio.ndim > 1 else audio
-    count = max(1, 1 + (len(audio) - FRAME) // HOP)
-    index = np.minimum(np.arange(FRAME) + HOP * np.arange(count)[:, None], len(audio) - 1)
-    return 20 * np.log10(np.sqrt((audio[index] ** 2).mean(axis=1)) + 1e-9)
+def lexical(word: str, min_letters: int) -> float:
+    """Long and rare words carry the content (OBSIDIAN, PISCES); common words don't.
+    Words barely attested in English (mostly romanised Hindi) get a neutral rarity instead of looking rare."""
+    if word in stopwords():
+        return 0.0
+    length = min(1.0, max(0, len(word) - min_letters + 1) / 6)
+    zipf = zipf_frequency(word, "en")
+    rarity = 0.4 if zipf < 2.5 else min(1.0, (6.5 - zipf) / 3.5)
+    return round(0.5 * length + 0.5 * rarity, 3)
 
 
 def robust_z(values: list[float]) -> np.ndarray:
@@ -33,27 +35,20 @@ def robust_z(values: list[float]) -> np.ndarray:
     return np.clip((v - median) / spread, -3, 3)
 
 
-def local_contrast(values: list[float], radius: int = 4) -> list[float]:
-    return [v - float(np.median(values[max(0, i - radius):i + radius + 1])) for i, v in enumerate(values)]
-
-
 def word_features(words: list[Word], wav: Path, min_letters: int = 4) -> list[FeaturedWord]:
     if not words:
         return []
     db = energy_db(wav)
-    frame = lambda t: min(int(t * SAMPLE_RATE / HOP), len(db) - 1)
-    out = []
-    for i, w in enumerate(words):
-        word = core(w.text)
-        out.append(FeaturedWord(
-            **w.model_dump(),
-            energy=float(db[frame(w.start):frame(w.end) + 1].mean()),
-            stretch=(w.end - w.start) / max(1, len(word)),
-            pause_before=max(0.0, w.start - words[i - 1].end) if i else 0.0,
-            lexical=0.0 if word in stopwords() else round(min(1.0, max(0, len(word) - min_letters + 1) / 6), 3),
-        ))
+    frame = lambda t: min(int(t / FRAME_S), len(db) - 1)
+    out = [FeaturedWord(
+        **w.model_dump(),
+        energy=float(db[frame(w.start):frame(w.end) + 1].mean()),
+        stretch=(w.end - w.start) / max(1, len(core(w.text))),
+        pause_before=max(0.0, w.start - words[i - 1].end) if i else 0.0,
+        lexical=lexical(core(w.text), min_letters),
+    ) for i, w in enumerate(words)]
     # loudness counts relative to nearby words: emphasis is local contrast, not overall volume
-    energy = local_contrast([w.energy for w in out])
+    energy = [w.energy - float(np.median([x.energy for x in out[max(0, i - 4):i + 5]])) for i, w in enumerate(out)]
     for name, values in (("energy", energy), ("stretch", [w.stretch for w in out]), ("pause", [w.pause_before for w in out])):
         for w, z in zip(out, robust_z(values)):
             setattr(w, f"{name}_z", round(float(z), 3))

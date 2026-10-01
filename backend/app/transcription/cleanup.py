@@ -1,37 +1,63 @@
-"""Make raw words safe to render, and map a known script onto heard word timings."""
+"""Make raw words render-safe: spelling, punctuation, order, and timings snapped to actual speech."""
 
+import json
 import re
 from difflib import SequenceMatcher
+from functools import cache
+from pathlib import Path
 
+import numpy as np
+
+from app.media.audio import FRAME_S, energy_db, voiced
 from app.transcription.models import Word
 
 MIN_WORD_S = 0.08
 PUNCT_ONLY = re.compile(r"^[^\w]+$")
+WORD_PARTS = re.compile(r"^(\W*)([\w']+)(\W*)$")
 
 
 def core(text: str) -> str:
     return re.sub(r"[^\w']", "", text.lower())
 
 
-def clean_words(words: list[Word], duration: float) -> list[Word]:
+@cache
+def spellings() -> dict[str, str]:
+    return json.loads((Path(__file__).parent / "spelling.json").read_text(encoding="utf-8"))
+
+
+def respell(text: str) -> str:
+    """ASR spellings -> common social-media Hinglish ('mainne' -> 'maine'), keeping case and punctuation."""
+    if not (parts := WORD_PARTS.match(text)) or not (fix := spellings().get(parts[2].lower())):
+        return text
+    return parts[1] + (fix.capitalize() if parts[2][0].isupper() else fix) + parts[3]
+
+
+def snap_to_speech(words: list[Word], wav: Path) -> None:
+    """Move each word's start forward and end back onto voiced audio, so captions never show over silence."""
+    speech = np.flatnonzero(voiced(energy_db(wav)))
+    for w in words:
+        inside = speech[(speech >= int(w.start / FRAME_S)) & (speech < int(w.end / FRAME_S) + 1)]
+        if inside.size:
+            w.start, w.end = max(w.start, float(inside[0] * FRAME_S)), min(w.end, float((inside[-1] + 1) * FRAME_S))
+
+
+def clean_words(words: list[Word], wav: Path, duration: float) -> list[Word]:
     out: list[Word] = []
     for w in words:
         text = w.text.strip()
-        if not text:
-            continue
-        if PUNCT_ONLY.match(text) and out:
+        if PUNCT_ONLY.match(text or "x") and out:
             out[-1].text += text
-            continue
-        out.append(w.model_copy(update={"text": text}))
+        elif text:
+            out.append(w.model_copy(update={"text": text}))
 
     prev_end = 0.0
     for w in out:
-        if w.start is None:
-            continue
         start = min(max(w.start, prev_end), duration)
-        end = w.end if w.end is not None else start + 0.3
-        end = min(max(end, start + MIN_WORD_S), duration)
-        w.start, w.end, prev_end = round(start, 3), round(end, 3), end
+        w.start, w.end = start, min(max(w.end if w.end is not None else start + 0.3, start + MIN_WORD_S), duration)
+        prev_end = w.end
+    snap_to_speech(out, wav)
+    for w in out:
+        w.start, w.end = round(w.start, 3), round(max(w.end, w.start + MIN_WORD_S), 3)
     return out
 
 
@@ -57,14 +83,8 @@ def align_script(script: list[Word], heard: list[Word]) -> list[Word]:
             i += 1
             continue
         j = next((k for k in range(i, len(script)) if script[k].start is not None), len(script))
-        left = script[i - 1].end if i else 0.0
+        left = script[i - 1].end if i else heard[0].start
         right = script[j].start if j < len(script) else left + 0.3 * (j - i)
         spread(script[i:j], left, right)
         i = j
     return script
-
-
-def to_srt(words: list[Word]) -> str:
-    stamp = lambda s: f"{int(s // 3600):02}:{int(s % 3600 // 60):02}:{int(s % 60):02},{int(s % 1 * 1000):03}"
-    return "\n".join(f"{i}\n{stamp(w.start)} --> {stamp(w.end)}\n{w.text}\n"
-                     for i, w in enumerate((w for w in words if w.start is not None), 1))

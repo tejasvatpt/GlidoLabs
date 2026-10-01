@@ -10,10 +10,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import jobs
-from app.captions.build import STYLES_DIR, load_style
-from app.config import REPO_ROOT, settings
+from app.config import REPO_ROOT, load_style, settings, style_names
 from app.media.ingest import ALLOWED_EXTENSIONS
-from app.transcription.sources import ApexSource
+from app.transcription.sources import apex_pipeline
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 CHUNK = 1024 * 1024
@@ -23,7 +22,7 @@ CHUNK = 1024 * 1024
 async def lifespan(_):
     settings.jobs_dir.mkdir(parents=True, exist_ok=True)
     jobs.sweep_old_jobs()
-    jobs.worker.submit(ApexSource.pipeline)  # load the model now so the first upload doesn't wait for it
+    jobs.worker.submit(apex_pipeline)  # load the model now so the first upload doesn't wait for it
     yield
 
 
@@ -45,7 +44,7 @@ async def create_job(file: UploadFile = File(...), script: str = Form(""), force
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(400, "Unsupported file type. Use MP4, MOV, WebM or MKV.")
-    if not (STYLES_DIR / style / "style.json").exists():
+    if style not in style_names():
         raise HTTPException(400, f"Unknown style '{style}'.")
 
     job = jobs.Job(id=uuid.uuid4().hex, style=style, script=script.strip() or None, input_name=file.filename,
@@ -106,12 +105,12 @@ def media_input(job_id: str):
 
 @app.get("/api/styles")
 def styles():
-    return sorted(p.parent.name for p in STYLES_DIR.glob("*/style.json"))
+    return style_names()
 
 
 @app.get("/api/styles/{name}")
 def style(name: str):
-    if not (STYLES_DIR / name / "style.json").exists() or not name.isalnum():
+    if name not in style_names():
         raise HTTPException(404, "Style not found.")
     return load_style(name)
 

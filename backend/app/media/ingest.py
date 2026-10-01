@@ -1,6 +1,5 @@
-"""Phase 1 entry point: accept a video, validate it, create a job folder, extract audio."""
+"""Accept a video: validate it, create the job folder, extract 16 kHz audio."""
 
-import json
 import shutil
 import uuid
 from pathlib import Path
@@ -47,20 +46,6 @@ def ingest(source: Path, jobs_dir: Path | None = None, job_id: str | None = None
     shutil.copyfile(source, input_path)
     audio_path = extract_audio(input_path, job_dir / "audio.wav")
 
-    result = IngestResult(
-        job_id=job_id, job_dir=job_dir, input_path=input_path, audio_path=audio_path, video=info,
-    )
     (job_dir / "video.json").write_text(info.model_dump_json(indent=2), encoding="utf-8")
-    return result
+    return IngestResult(job_id=job_id, job_dir=job_dir, input_path=input_path, audio_path=audio_path, video=info)
 
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) != 2:
-        sys.exit("usage: python -m app.media.ingest <video>")
-    try:
-        res = ingest(Path(sys.argv[1]))
-    except MediaError as e:
-        sys.exit(f"error: {e}")
-    print(json.dumps(json.loads(res.model_dump_json()), indent=2))

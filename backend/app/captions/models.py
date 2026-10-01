@@ -19,8 +19,7 @@ class Weights(BaseModel):
 class EngineConfig(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
     max_words: int
-    max_chars: int
-    line_max_chars: int
+    max_lines_fill: float
     pause_break_s: float
     hold_s: float
     gap_fill_s: float
@@ -28,8 +27,10 @@ class EngineConfig(BaseModel):
     min_letters: int
     weights: Weights
     emphasis_threshold: float
+    emphasis_min_lexical: float
     hook_threshold: float
     hook_stem_letters: int
+    hook_min_lexical: float
     hook_min_gap_s: float
     hooks_per_minute: float
 

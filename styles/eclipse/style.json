@@ -1,27 +1,13 @@
 {
   "name": "eclipse",
-  "version": 1,
   "fonts": {
-    "caption": {
-      "family": "Montserrat",
-      "file": "fonts/Montserrat.ttf",
-      "weight": 700
-    },
-    "emphasis": {
-      "family": "Anton",
-      "file": "fonts/Anton-Regular.ttf",
-      "weight": 400
-    },
-    "hook": {
-      "family": "Anton",
-      "file": "fonts/Anton-Regular.ttf",
-      "weight": 400
-    }
+    "caption": { "family": "Montserrat", "file": "fonts/Montserrat.ttf", "weight": 700 },
+    "emphasis": { "family": "Anton", "file": "fonts/Anton-Regular.ttf", "weight": 400 },
+    "hook": { "family": "Anton", "file": "fonts/Anton-Regular.ttf", "weight": 400 }
   },
   "caption": {
     "fontSize": 0.058,
     "lineHeight": 1.18,
-    "letterSpacing": 0.01,
     "wordGap": 0.28,
     "baselineY": 0.8,
     "maxWidth": 0.86,
@@ -29,58 +15,33 @@
     "activeColor": "#FFE81A",
     "activeBackground": "rgba(255, 214, 0, 0.22)",
     "shadow": "0 0.04em 0.18em rgba(0,0,0,0.55)",
-    "emphasis": {
-      "uppercase": true,
-      "scale": 1.12,
-      "color": "#FFFFFF"
-    }
+    "emphasis": { "uppercase": true, "scale": 1.12, "color": "#FFFFFF" }
   },
   "hook": {
     "fontSize": 0.34,
     "maxWidth": 0.86,
-    "uppercase": true,
     "topY": 0.125,
+    "settleMs": 567,
     "color": "#FFFFFF",
     "accentColor": "#FFE81A",
     "shadow": "0 0.03em 0.12em rgba(0,0,0,0.45)",
-    "box": {
-      "color": "rgba(255, 221, 0, 0.38)",
-      "settledColor": "rgba(255, 221, 0, 0)",
-      "radius": 0.02,
-      "paddingX": 0.02,
-      "paddingY": 0.008
-    }
-  },
-  "animation": {
-    "groupInMs": 120,
-    "groupInDistance": 0.012,
-    "wordPopScale": 1.1,
-    "wordPopMs": 160,
-    "colorFadeMs": 60,
-    "hookInMs": 260,
-    "hookInScale": 1.35,
-    "hookSettleMs": 450,
-    "hookOutMs": 150
+    "box": { "color": "rgba(255, 221, 0, 0.38)", "radius": 0.02, "paddingX": 0.02, "paddingY": 0.008 }
   },
   "engine": {
     "maxWords": 4,
-    "maxChars": 24,
-    "lineMaxChars": 20,
+    "maxLinesFill": 1.6,
     "pauseBreakS": 0.35,
     "holdS": 0.25,
     "gapFillS": 0.5,
     "hookMinS": 1.0,
     "minLetters": 4,
-    "weights": {
-      "energy": 0.25,
-      "stretch": 0.15,
-      "pause": 0.1,
-      "lexical": 0.8
-    },
+    "weights": { "energy": 0.25, "stretch": 0.15, "pause": 0.1, "lexical": 0.8 },
     "emphasisThreshold": 0.7,
+    "emphasisMinLexical": 0.5,
     "hookThreshold": 0.55,
+    "hookMinLexical": 0.6,
+    "hookStemLetters": 5,
     "hookMinGapS": 4.0,
-    "hooksPerMinute": 4,
-    "hookStemLetters": 5
+    "hooksPerMinute": 4
   }
 }
