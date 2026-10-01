@@ -105,3 +105,5 @@ def sweep_old_jobs(max_age_h: float = 24):
     for folder in settings.jobs_dir.glob("*"):
         if folder.is_dir() and folder.stat().st_mtime < cutoff:
             shutil.rmtree(folder, ignore_errors=True)
+        elif (job := load(folder.name)) and job.status not in ("ready", "done", "error"):
+            save(job, status="error", error="Interrupted by a server restart. Please upload again.")

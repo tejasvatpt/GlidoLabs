@@ -6,7 +6,7 @@ import type { Captions, Style } from "renderer/src/types";
 type Job = { id: string; status: string; progress: number; error: string | null };
 
 const STAGE_LABELS: Record<string, string> = {
-  queued: "Waiting to start", extracting: "Extracting audio", transcribing: "Transcribing speech",
+  queued: "Waiting for the previous video to finish", extracting: "Extracting audio", transcribing: "Transcribing speech",
   captioning: "Building captions", rendering: "Rendering video",
 };
 
@@ -41,13 +41,22 @@ export const App = () => {
   const busy = job && !["ready", "done", "error"].includes(job.status);
 
   useEffect(() => {
+    const id = location.hash.match(/job=(\w+)/)?.[1];
+    if (id) getJson<Job>(`/api/jobs/${id}`).then(setJob).catch(() => (location.hash = ""));
+  }, []);
+
+  useEffect(() => {
+    if (job) location.hash = `job=${job.id}`;
+  }, [job?.id]);
+
+  useEffect(() => {
     if (!busy) return;
     const timer = setInterval(() => getJson<Job>(`/api/jobs/${job.id}`).then(setJob).catch((e) => setError(e.message)), 1200);
     return () => clearInterval(timer);
   }, [busy, job?.id]);
 
   useEffect(() => {
-    if (job?.status !== "ready" || preview) return;
+    if (!job || !["ready", "done"].includes(job.status) || preview) return;
     getJson<Captions>(`/api/jobs/${job.id}/captions`)
       .then(async (captions) => setPreview({ captions, style: await getJson<Style>(`/api/styles/${captions.style}`) }))
       .catch((e) => setError(e.message));
@@ -74,7 +83,10 @@ export const App = () => {
     setJob({ ...job!, status: "rendering", progress: 0 });
   };
 
-  const reset = () => [setFile(null), setJob(null), setPreview(null), setError(""), setScript("")];
+  const reset = () => {
+    [setFile(null), setJob(null), setPreview(null), setError(""), setScript("")];
+    history.replaceState(null, "", location.pathname);
+  };
   const video = preview?.captions.video;
 
   return (

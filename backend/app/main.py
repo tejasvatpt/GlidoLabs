@@ -13,6 +13,7 @@ from app import jobs
 from app.captions.build import STYLES_DIR, load_style
 from app.config import REPO_ROOT, settings
 from app.media.ingest import ALLOWED_EXTENSIONS
+from app.transcription.sources import ApexSource
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 CHUNK = 1024 * 1024
@@ -22,6 +23,7 @@ CHUNK = 1024 * 1024
 async def lifespan(_):
     settings.jobs_dir.mkdir(parents=True, exist_ok=True)
     jobs.sweep_old_jobs()
+    jobs.worker.submit(ApexSource.pipeline)  # load the model now so the first upload doesn't wait for it
     yield
 
 

@@ -36,6 +36,8 @@ class ApexSource:
             device="cuda:0" if use_gpu else "cpu",
             generate_kwargs={"task": "transcribe", "language": "en"},
         )
+        if not use_gpu:  # int8 on CPU: same WER on our test, ~3x less RAM, much faster than fp32/bf16
+            pipe.model = torch.ao.quantization.quantize_dynamic(pipe.model, {torch.nn.Linear}, dtype=torch.qint8)
         # Apex ships without word-timing heads; it shares large-v3-turbo's architecture, so reuse its heads
         pipe.model.generation_config.alignment_heads = TURBO_ALIGNMENT_HEADS
         return pipe
