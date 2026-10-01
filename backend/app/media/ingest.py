@@ -31,7 +31,7 @@ def validate_file(path: Path) -> None:
         raise MediaError(f"File is {size_mb:.0f} MB; the limit is {settings.max_upload_mb} MB.")
 
 
-def ingest(source: Path, jobs_dir: Path | None = None) -> IngestResult:
+def ingest(source: Path, jobs_dir: Path | None = None, job_id: str | None = None) -> IngestResult:
     validate_file(source)
     info = probe(source)
     if not info.has_audio:
@@ -39,9 +39,9 @@ def ingest(source: Path, jobs_dir: Path | None = None) -> IngestResult:
     if info.duration > settings.max_duration_s:
         raise MediaError(f"Video is {info.duration:.0f} s; the limit is {settings.max_duration_s:.0f} s.")
 
-    job_id = uuid.uuid4().hex
+    job_id = job_id or uuid.uuid4().hex
     job_dir = (jobs_dir or settings.jobs_dir) / job_id
-    job_dir.mkdir(parents=True)
+    job_dir.mkdir(parents=True, exist_ok=True)
     # Never reuse the user's file name in paths.
     input_path = job_dir / f"input{source.suffix.lower()}"
     shutil.copyfile(source, input_path)
