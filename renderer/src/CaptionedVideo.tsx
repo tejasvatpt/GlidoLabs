@@ -87,11 +87,12 @@ const HookLayer = ({ captions, style }: CaptionProps) => {
   );
 };
 
+// Preview passes the video; export passes none and gets transparent caption-only frames that FFmpeg overlays.
 export const CaptionedVideo = (props: CaptionProps) => {
   const fontsLoaded = useFonts(props.style);
   return (
-    <AbsoluteFill style={{ backgroundColor: "black" }}>
-      <Video src={props.videoSrc} />
+    <AbsoluteFill style={{ backgroundColor: props.videoSrc ? "black" : "transparent" }}>
+      {props.videoSrc && <Video src={props.videoSrc} />}
       {fontsLoaded && <CaptionLayer {...props} />}
       {fontsLoaded && <HookLayer {...props} />}
     </AbsoluteFill>

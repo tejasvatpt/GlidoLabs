@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     max_upload_mb: int = 500
     max_duration_s: float = 600
     asr_device: str = "cuda"
-    port: int = 8000
 
     @property
     def jobs_dir(self) -> Path:

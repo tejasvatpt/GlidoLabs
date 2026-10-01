@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -27,8 +26,6 @@ async def lifespan(_):
 
 
 app = FastAPI(title="Glido Labs", lifespan=lifespan)
-# the Remotion render browser fetches /media from its own localhost origin
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], expose_headers=["Content-Range", "Accept-Ranges"])
 
 
 def get_job(job_id: str) -> jobs.Job:
@@ -82,8 +79,7 @@ def export_job(job_id: str):
     job = get_job(job_id)
     if job.status not in ("ready", "done", "error") or not (jobs.job_dir(job_id) / "captions.json").exists():
         raise HTTPException(409, "Job is not ready for export.")
-    jobs.worker.submit(jobs.export, jobs.save(job, status="rendering", progress=0, error=None),
-                       f"http://127.0.0.1:{settings.port}/media/{job_id}/input")
+    jobs.worker.submit(jobs.export, jobs.save(job, status="rendering", progress=0, error=None))
     return {"status": "rendering"}
 
 

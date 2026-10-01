@@ -58,8 +58,9 @@ def segment(words: list[ScoredWord], cfg: EngineConfig, measure: TextMeasure) ->
     for layer in ("normal", "hook"):
         same = [g for g in groups if g.layer == layer]
         for g, nxt in zip(same, same[1:] + [None]):
-            if layer == "hook":
-                g.end = max(g.end, g.start + cfg.hook_min_s)
+            if layer == "hook":  # readable for hookMinS, but never beyond the speech that follows it
+                speech_end = max(w.end for w in words if w.start < g.start + cfg.hook_min_s)
+                g.end = min(max(g.end, g.start + cfg.hook_min_s), speech_end)
             if nxt:
                 g.end = nxt.start if nxt.start - g.end < cfg.gap_fill_s else min(g.end, nxt.start)
             g.end = round(g.end, 3)

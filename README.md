@@ -16,6 +16,7 @@ RTX 2050 (2.3 GB VRAM); on CPU it needs ~3 GB of free RAM and a few minutes.
 cp .env.example .env
 python -m venv backend/.venv
 backend/.venv/Scripts/pip install -r backend/requirements.txt   # macOS/Linux: backend/.venv/bin/pip
+backend/.venv/Scripts/pip install --no-deps silero-vad          # voice detector; --no-deps keeps your CUDA torch
 npm install
 npm run build --workspace frontend
 ```
@@ -29,18 +30,17 @@ cd backend
 
 Open http://127.0.0.1:8000. The server loads the Apex model at startup (~1.6 GB download the first time).
 Development: `npm run dev --workspace frontend` (Vite, proxies the API) and `npm run studio --workspace renderer`.
-Tests: `cd backend && .venv/Scripts/python -m pytest` (`-m "not slow"` skips the model test).
 
 ## Structure
 
 ```
 backend/app/
   main.py, jobs.py, config.py      API, one background worker, settings + style loading
-  media/        probe.py (ffprobe, WAV)  ingest.py (validate, job folder)  audio.py (loudness, voiced frames)
+  media/        probe.py (ffprobe, WAV)  ingest.py (validate, job folder)  audio.py (loudness, Silero speech regions)
   transcription/ sources.py (Apex ASR, script path)  cleanup.py (respell, snap to speech, align)  spelling.json
   captions/     features.py → emphasis.py → segmenter.py (+ layout.py text measuring) → build.py
   rendering.py  runs renderer/render.mjs
-renderer/src/   CaptionedVideo.tsx (the Eclipse renderer), Root.tsx, types.ts
+renderer/       render.mjs (export), src/CaptionedVideo.tsx (the Eclipse renderer), Root.tsx, types.ts
 frontend/src/   App.tsx (upload → progress → live preview → export)
 styles/eclipse/ style.json + bundled OFL fonts
 ```
@@ -54,8 +54,15 @@ The renderer only reads `captions.json` + `style.json` + the video; it knows not
 - **Glido-generated video (script known):** caption text is the script word for word; audio only supplies timing
   (script words are matched onto heard-word timestamps). In production the TTS engine's word boundaries plug in here.
 
-Both paths snap every word onto voiced audio (`media/audio.py`), so no caption appears over silence, even if speech
-starts seconds into the video. Another ASR (AssemblyAI, Sarvam, a forced aligner) only has to return `Word[]`.
+Both paths clip every word to speech found by [Silero VAD](https://github.com/snakers4/silero-vad) (MIT), which
+ignores music, rain and other noise. Words with no speech under them are dropped and groups end when the last word
+ends, so captions appear only while someone is talking. Another ASR only has to return `Word[]`.
+
+### Export
+
+Chrome (GPU drawing via ANGLE) renders only the captions as transparent frames; FFmpeg decodes the original video,
+overlays them and encodes H.264. The live preview uses the same composition with the video inside the browser.
+An 8 s clip exports in ~16 s, down from ~69 s when Chrome also had to decode and paint every video frame.
 
 ### Caption intelligence
 
@@ -81,7 +88,7 @@ All values are fractions of the frame in `styles/eclipse/style.json`; a new styl
 | Area | Current (free, local) | Premium upgrade | Why |
 | --- | --- | --- | --- |
 | ASR | [Whisper-Hindi2Hinglish-Apex](https://huggingface.co/Oriserve/Whisper-Hindi2Hinglish-Apex) (Apache-2.0) | ElevenLabs Scribe, AssemblyAI, Sarvam Saaras | Only open model found that outputs Roman Hinglish; fits a 4 GB GPU |
-| Word timing | Whisper timestamps + voiced-audio snapping; script mapping | CTC forced alignment, TTS word boundaries | No extra model |
+| Word timing | Whisper timestamps clipped to Silero VAD speech; script mapping | CTC forced alignment, TTS word boundaries | Tiny local model, robust to background noise |
 | Rendering | [Remotion](https://www.remotion.dev/docs/license) 4.x (pinned) | Remotion Lambda | One React composition for live preview and MP4; free for individuals and companies of up to 3 people |
 | Media | FFmpeg | — | Probe, audio, encode |
 | Fonts | Montserrat, Anton (SIL OFL, bundled) | — | Closest open match to Eclipse |
@@ -91,7 +98,7 @@ Model-author benchmarks use different test sets and are not comparable; the numb
 
 ## Results on the reference
 
-First 20 s of `Eclipse.mp4`, ground truth typed from its burnt-in captions (`backend/tests/data/eclipse_first_20s.txt`):
+First 20 s of `Eclipse.mp4`, ground truth typed from its burnt-in captions:
 
 | Check | Result |
 | --- | --- |
@@ -106,8 +113,8 @@ maps are switched off during word timing, cutting VRAM from 5.2 to 2.3 GB.
 
 ## Samples
 
-- `samples/demo_input.mp4` — Hinglish script read by an offline Indian-English voice over drone footage (`samples/make_tts_sample.ps1`).
-- `samples/demo_output.mp4` — rendered through the script path; `samples/demo_output_asr.mp4` — through the ASR path.
+- `samples/demo_input.mp4` — the Hinglish script in `samples/demo_script.txt`, read by an offline Indian-English voice over drone footage.
+- `samples/demo_output.mp4` — exported by the app through the script path.
 
 The Eclipse reference already has captions burned in, so it is used only as the style reference.
 

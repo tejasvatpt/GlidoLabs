@@ -9,6 +9,3 @@ pillow
 wordfreq
 torch
 transformers
-jiwer
-pytest
-httpx

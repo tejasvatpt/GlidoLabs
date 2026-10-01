@@ -1,5 +1,6 @@
-"""Loudness envelope of the 16 kHz WAV and where speech actually is."""
+"""Loudness envelope of the 16 kHz WAV and where speech actually is (Silero VAD, robust to music/noise)."""
 
+from functools import cache
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +18,17 @@ def energy_db(wav: Path) -> np.ndarray:
     return 20 * np.log10(np.sqrt((audio[index] ** 2).mean(axis=1)) + 1e-9)
 
 
-def voiced(db: np.ndarray) -> np.ndarray:
-    """Frames well above the noise floor and within 40 dB of the loudest speech."""
-    return db > max(np.percentile(db, 10) + 12, np.percentile(db, 99) - 40)
+@cache
+def vad_model():
+    from silero_vad import load_silero_vad
+    return load_silero_vad()
+
+
+def speech_regions(wav: Path) -> list[tuple[float, float]]:
+    import torch
+    from silero_vad import get_speech_timestamps
+
+    audio, _ = sf.read(wav, dtype="float32")
+    regions = get_speech_timestamps(torch.from_numpy(audio), vad_model(), sampling_rate=SAMPLE_RATE,
+                                    threshold=0.5, speech_pad_ms=60, return_seconds=True)
+    return [(r["start"], r["end"]) for r in regions]

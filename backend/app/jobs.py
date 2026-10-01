@@ -86,12 +86,11 @@ def process(job: Job, upload: Path):
     run_step(job, steps)
 
 
-def export(job: Job, video_url: str):
+def export(job: Job):
     def steps():
-        folder = job_dir(job.id)
         save(job, status="rendering", progress=0)
-        props = {"videoSrc": video_url, "captions": captions(job.id), "style": load_style(job.style)}
-        render_video(props, folder / "props.json", folder / "output.mp4", lambda p: save(job, progress=p))
+        props = {"captions": captions(job.id), "style": load_style(job.style)}
+        render_video(props, input_file(job.id), job_dir(job.id) / "output.mp4", lambda p: save(job, progress=p))
         save(job, status="done", progress=1)
 
     run_step(job, steps)

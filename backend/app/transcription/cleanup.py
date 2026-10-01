@@ -6,9 +6,7 @@ from difflib import SequenceMatcher
 from functools import cache
 from pathlib import Path
 
-import numpy as np
-
-from app.media.audio import FRAME_S, energy_db, voiced
+from app.media.audio import speech_regions
 from app.transcription.models import Word
 
 MIN_WORD_S = 0.08
@@ -32,13 +30,16 @@ def respell(text: str) -> str:
     return parts[1] + (fix.capitalize() if parts[2][0].isupper() else fix) + parts[3]
 
 
-def snap_to_speech(words: list[Word], wav: Path) -> None:
-    """Move each word's start forward and end back onto voiced audio, so captions never show over silence."""
-    speech = np.flatnonzero(voiced(energy_db(wav)))
+def snap_to_speech(words: list[Word], wav: Path) -> list[Word]:
+    """Clip each word to detected speech; words with no speech under them (music, noise) are dropped.
+    A word stretched over several regions starts in the last one: Whisper ends are reliable, starts drift back."""
+    regions, kept = speech_regions(wav), []
     for w in words:
-        inside = speech[(speech >= int(w.start / FRAME_S)) & (speech < int(w.end / FRAME_S) + 1)]
-        if inside.size:
-            w.start, w.end = max(w.start, float(inside[0] * FRAME_S)), min(w.end, float((inside[-1] + 1) * FRAME_S))
+        overlap = [(s, e) for s, e in regions if s < w.end and e > w.start]
+        if overlap:
+            w.start, w.end = max(w.start, overlap[-1][0]), min(w.end, overlap[-1][1])
+            kept.append(w)
+    return kept
 
 
 def clean_words(words: list[Word], wav: Path, duration: float) -> list[Word]:
@@ -55,7 +56,7 @@ def clean_words(words: list[Word], wav: Path, duration: float) -> list[Word]:
         start = min(max(w.start, prev_end), duration)
         w.start, w.end = start, min(max(w.end if w.end is not None else start + 0.3, start + MIN_WORD_S), duration)
         prev_end = w.end
-    snap_to_speech(out, wav)
+    out = snap_to_speech(out, wav)
     for w in out:
         w.start, w.end = round(w.start, 3), round(max(w.end, w.start + MIN_WORD_S), 3)
     return out
