@@ -29,6 +29,7 @@ class EngineConfig(BaseModel):
     weights: Weights
     emphasis_threshold: float
     hook_threshold: float
+    hook_stem_letters: int
     hook_min_gap_s: float
     hooks_per_minute: float
 

@@ -55,17 +55,23 @@ def test_long_group_breaks_into_two_lines():
 
 
 def test_hooks_are_spaced_and_budgeted():
-    words = [FeaturedWord(text=f"keyword{i}", start=i * 1.0, end=i * 1.0 + 0.5, energy=0, stretch=0,
+    words = [FeaturedWord(text=f"{chr(97 + i) * 3}word", start=i * 1.0, end=i * 1.0 + 0.5, energy=0, stretch=0,
                           pause_before=0, lexical=1, energy_z=3, stretch_z=3, pause_z=3) for i in range(20)]
     hooks = [w for w in score_words(words, CFG, duration=20) if w.role == "hook"]
     assert 1 <= len(hooks) <= round(CFG.hooks_per_minute * 20 / 60)
     assert all(b.start - a.start >= CFG.hook_min_gap_s for a, b in zip(hooks, hooks[1:]))
 
 
+def test_repeated_words_never_become_hooks():
+    words = [FeaturedWord(text=t, start=i * 5.0, end=i * 5.0 + 0.5, energy=0, stretch=0, pause_before=0, lexical=1,
+                          energy_z=3, stretch_z=3, pause_z=3) for i, t in enumerate(["mangwaya", "mangwaya", "obsidian"])]
+    assert [w.text for w in score_words(words, CFG, duration=60) if w.role == "hook"] == ["obsidian"]
+
+
 def test_force_hooks_and_stopwords_never_hooks():
     words = [FeaturedWord(text=t, start=i, end=i + 0.4, energy=0, stretch=0, pause_before=0, lexical=lex,
                           energy_z=z, stretch_z=z, pause_z=z) for i, (t, lex, z) in
-             enumerate([("hai", 0, 3), ("pisces.", 1, 0), ("normal", 1, 0)])]
+             enumerate([("hai", 0, 3), ("pisces.", 1, 0), ("normal", 0.2, 0)])]
     roles = {w.text: w.role for w in score_words(words, CFG, duration=3, force_hooks=["Pisces"])}
     assert roles == {"hai": "normal", "pisces.": "hook", "normal": "normal"}
 

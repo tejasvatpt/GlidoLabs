@@ -65,21 +65,22 @@
   "engine": {
     "maxWords": 4,
     "maxChars": 24,
-    "lineMaxChars": 16,
+    "lineMaxChars": 20,
     "pauseBreakS": 0.35,
     "holdS": 0.25,
     "gapFillS": 0.5,
     "hookMinS": 1.0,
     "minLetters": 4,
     "weights": {
-      "energy": 0.35,
-      "stretch": 0.25,
-      "pause": 0.15,
-      "lexical": 0.25
+      "energy": 0.25,
+      "stretch": 0.15,
+      "pause": 0.1,
+      "lexical": 0.8
     },
-    "emphasisThreshold": 0.8,
-    "hookThreshold": 1.2,
+    "emphasisThreshold": 0.7,
+    "hookThreshold": 0.55,
     "hookMinGapS": 4.0,
-    "hooksPerMinute": 4
+    "hooksPerMinute": 4,
+    "hookStemLetters": 5
   }
 }
