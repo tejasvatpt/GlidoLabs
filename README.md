@@ -19,6 +19,13 @@ npm run build --workspace frontend
 cd backend && .venv/Scripts/uvicorn app.main:app --port 8000
 ```
 
+Windows PowerShell (5.1 has no `&&`):
+
+```powershell
+cd backend
+.\.venv\Scripts\uvicorn app.main:app --port 8000
+```
+
 Open http://127.0.0.1:8000. The first transcription downloads the Apex model (~1.6 GB) from Hugging Face.
 
 For development, run `npm run dev --workspace frontend` (Vite on :5173, proxies the API) and `npm run studio --workspace renderer` (Remotion Studio for tuning the style).
