@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,6 +26,8 @@ async def lifespan(_):
 
 
 app = FastAPI(title="Glido Labs", lifespan=lifespan)
+# the Remotion render browser fetches /media from its own localhost origin
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], expose_headers=["Content-Range", "Accept-Ranges"])
 
 
 def get_job(job_id: str) -> jobs.Job:

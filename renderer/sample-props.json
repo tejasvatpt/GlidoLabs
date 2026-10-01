@@ -1,5 +1,5 @@
 {
- "videoSrc": "http://127.0.0.1:8765/Eclipse.mp4",
+ "videoSrc": "http://127.0.0.1:8000/media/rendertest/input",
  "captions": {
   "version": 1,
   "style": "eclipse",

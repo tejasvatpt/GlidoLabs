@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import {
-  AbsoluteFill, OffthreadVideo, cancelRender, continueRender, delayRender, interpolate, interpolateColors,
+  AbsoluteFill, cancelRender, continueRender, delayRender, interpolate, interpolateColors,
   spring, staticFile, useCurrentFrame, useVideoConfig,
 } from "remotion";
 import { fitText } from "@remotion/layout-utils";
+import { Video } from "@remotion/media";
 import type { CaptionGroup, CaptionProps, CaptionWord, Style } from "./types";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -111,7 +112,7 @@ export const CaptionedVideo = (props: CaptionProps) => {
   const fontsLoaded = useFonts(props.style);
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
-      <OffthreadVideo src={props.videoSrc} />
+      <Video src={props.videoSrc} />
       {fontsLoaded && <CaptionLayer {...props} />}
       {fontsLoaded && <HookLayer {...props} />}
     </AbsoluteFill>

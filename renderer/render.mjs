@@ -14,7 +14,7 @@ const composition = await selectComposition({ serveUrl, id: "CaptionedVideo", in
 
 let last = -1;
 await renderMedia({
-  composition, serveUrl, inputProps, outputLocation: output, codec: "h264", crf: 18,
+  composition, serveUrl, inputProps, outputLocation: output, codec: "h264", crf: 18, concurrency: 2,
   onProgress: ({ progress }) => {
     const pct = Math.floor(progress * 100);
     if (pct !== last) console.log(JSON.stringify({ progress: (last = pct) / 100 }));
