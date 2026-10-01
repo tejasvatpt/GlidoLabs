@@ -30,3 +30,4 @@ CLAUDE.md
 
 # large media (sample output is committed explicitly)
 samples/*.mp4
+dist/
