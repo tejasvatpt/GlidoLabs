@@ -24,9 +24,6 @@ hf_cache/
 ref/
 Glido_Labs_Build_Guide.pdf
 
-# local tooling
-.claude/
-CLAUDE.md
 
 # large media (sample output is committed explicitly)
 samples/*.mp4
