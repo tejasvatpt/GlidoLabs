@@ -1,0 +1,275 @@
+{
+ "videoSrc": "http://127.0.0.1:8765/Eclipse.mp4",
+ "captions": {
+  "version": 1,
+  "style": "eclipse",
+  "source": "manual",
+  "video": {
+   "width": 1080,
+   "height": 1920,
+   "fps": 30,
+   "duration": 4.5
+  },
+  "groups": [
+   {
+    "id": 1,
+    "layer": "normal",
+    "start": 0.4,
+    "end": 1,
+    "lines": [
+     [
+      0,
+      1,
+      2
+     ]
+    ],
+    "words": [
+     {
+      "text": "Maine",
+      "start": 0.4,
+      "end": 0.6,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "life",
+      "start": 0.6,
+      "end": 0.8,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "mein",
+      "start": 0.8,
+      "end": 1,
+      "role": "normal",
+      "emphasis": 0
+     }
+    ]
+   },
+   {
+    "id": 2,
+    "layer": "normal",
+    "start": 1,
+    "end": 2,
+    "lines": [
+     [
+      0,
+      1,
+      2
+     ]
+    ],
+    "words": [
+     {
+      "text": "pehli",
+      "start": 1,
+      "end": 1.3,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "baar",
+      "start": 1.3,
+      "end": 1.6,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "crystals",
+      "start": 1.6,
+      "end": 2,
+      "role": "normal",
+      "emphasis": 0
+     }
+    ]
+   },
+   {
+    "id": 3,
+    "layer": "normal",
+    "start": 2,
+    "end": 3,
+    "lines": [
+     [
+      0,
+      1,
+      2
+     ]
+    ],
+    "words": [
+     {
+      "text": "mangwaya",
+      "start": 2,
+      "end": 2.5,
+      "role": "emphasis",
+      "emphasis": 0
+     },
+     {
+      "text": "aur",
+      "start": 2.5,
+      "end": 2.7,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "wo",
+      "start": 2.7,
+      "end": 3,
+      "role": "normal",
+      "emphasis": 0
+     }
+    ]
+   },
+   {
+    "id": 4,
+    "layer": "normal",
+    "start": 3,
+    "end": 4.5,
+    "lines": [
+     [
+      0,
+      1,
+      2
+     ],
+     [
+      3
+     ]
+    ],
+    "words": [
+     {
+      "text": "mangwaya",
+      "start": 3,
+      "end": 3.4,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "tha",
+      "start": 3.4,
+      "end": 3.6,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "apne",
+      "start": 3.6,
+      "end": 3.9,
+      "role": "normal",
+      "emphasis": 0
+     },
+     {
+      "text": "liye.",
+      "start": 3.9,
+      "end": 4.4,
+      "role": "normal",
+      "emphasis": 0
+     }
+    ]
+   },
+   {
+    "id": 5,
+    "layer": "hook",
+    "start": 3,
+    "end": 4.4,
+    "lines": [
+     [
+      0
+     ]
+    ],
+    "words": [
+     {
+      "text": "obsidian",
+      "start": 3,
+      "end": 3.6,
+      "role": "hook",
+      "emphasis": 0
+     }
+    ]
+   }
+  ]
+ },
+ "style": {
+  "name": "eclipse",
+  "version": 1,
+  "fonts": {
+   "caption": {
+    "family": "Montserrat",
+    "file": "fonts/Montserrat.ttf",
+    "weight": 700
+   },
+   "emphasis": {
+    "family": "Anton",
+    "file": "fonts/Anton-Regular.ttf",
+    "weight": 400
+   },
+   "hook": {
+    "family": "Anton",
+    "file": "fonts/Anton-Regular.ttf",
+    "weight": 400
+   }
+  },
+  "caption": {
+   "fontSize": 0.058,
+   "lineHeight": 1.18,
+   "letterSpacing": 0.01,
+   "wordGap": 0.28,
+   "baselineY": 0.8,
+   "maxWidth": 0.86,
+   "color": "#FFFFFF",
+   "activeColor": "#FFE81A",
+   "activeBackground": "rgba(255, 214, 0, 0.22)",
+   "shadow": "0 0.04em 0.18em rgba(0,0,0,0.55)",
+   "emphasis": {
+    "uppercase": true,
+    "scale": 1.12,
+    "color": "#FFFFFF"
+   }
+  },
+  "hook": {
+   "fontSize": 0.34,
+   "maxWidth": 0.86,
+   "uppercase": true,
+   "topY": 0.125,
+   "color": "#FFFFFF",
+   "accentColor": "#FFE81A",
+   "shadow": "0 0.03em 0.12em rgba(0,0,0,0.45)",
+   "box": {
+    "color": "rgba(255, 221, 0, 0.38)",
+    "settledColor": "rgba(255, 221, 0, 0)",
+    "radius": 0.02,
+    "paddingX": 0.02,
+    "paddingY": 0
+   }
+  },
+  "animation": {
+   "groupInMs": 120,
+   "groupInDistance": 0.012,
+   "wordPopScale": 1.1,
+   "wordPopMs": 160,
+   "colorFadeMs": 60,
+   "hookInMs": 260,
+   "hookInScale": 1.35,
+   "hookSettleMs": 450,
+   "hookOutMs": 150
+  },
+  "engine": {
+   "maxWords": 4,
+   "maxChars": 24,
+   "lineMaxChars": 16,
+   "pauseBreakS": 0.35,
+   "holdS": 0.25,
+   "gapFillS": 0.5,
+   "hookMinS": 1,
+   "minLetters": 4,
+   "weights": {
+    "energy": 0.35,
+    "stretch": 0.25,
+    "pause": 0.15,
+    "lexical": 0.25
+   },
+   "emphasisThreshold": 0.8,
+   "hookThreshold": 1.2,
+   "hookMinGapS": 4,
+   "hooksPerMinute": 4
+  }
+ }
+}

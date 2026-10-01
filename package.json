@@ -1,0 +1,5 @@
+{
+  "name": "glido-labs",
+  "private": true,
+  "workspaces": ["renderer", "frontend"]
+}
