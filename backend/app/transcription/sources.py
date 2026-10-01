@@ -10,6 +10,7 @@ from app.transcription.cleanup import align_script, clean_words
 from app.transcription.models import Transcript, Word
 
 APEX_MODEL = "Oriserve/Whisper-Hindi2Hinglish-Apex"
+TURBO_ALIGNMENT_HEADS = [[2, 4], [2, 11], [3, 3], [3, 6], [3, 11], [3, 14]]
 
 
 def words_from_text(text: str) -> list[Word]:
@@ -28,13 +29,16 @@ class ApexSource:
         from transformers import pipeline
 
         use_gpu = settings.asr_device == "cuda" and torch.cuda.is_available()
-        return pipeline(
+        pipe = pipeline(
             "automatic-speech-recognition",
             model=APEX_MODEL,
             dtype=torch.float16 if use_gpu else torch.float32,
             device="cuda:0" if use_gpu else "cpu",
             generate_kwargs={"task": "transcribe", "language": "en"},
         )
+        # Apex ships without word-timing heads; it shares large-v3-turbo's architecture, so reuse its heads
+        pipe.model.generation_config.alignment_heads = TURBO_ALIGNMENT_HEADS
+        return pipe
 
     def transcribe(self, wav: Path, script: str | None = None) -> Transcript:
         result = self.pipeline()(str(wav), chunk_length_s=30, batch_size=1, return_timestamps="word")
