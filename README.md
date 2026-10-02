@@ -65,6 +65,10 @@ npm run build --workspace frontend
 
 ### 5. Run it
 
+**Windows:** just double-click **`start.bat`** in the project folder.
+
+**Mac / Linux:**
+
 ```bash
 cd backend
 uvicorn app.main:app --port 8000
