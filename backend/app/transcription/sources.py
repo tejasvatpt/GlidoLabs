@@ -3,6 +3,7 @@
 from functools import cache
 from pathlib import Path
 
+import numpy as np
 import soundfile as sf
 
 from app.config import settings
@@ -32,6 +33,7 @@ def apex_pipeline():
     encoder = pipe.model.model.encoder
     forward = encoder.forward
     encoder.forward = lambda *args, **kwargs: forward(*args, **{**kwargs, "output_attentions": False})
+    pipe(np.zeros(16000, dtype=np.float32), return_timestamps="word")  # warm-up, so the first real video is fast
     return pipe
 
 

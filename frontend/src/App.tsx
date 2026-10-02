@@ -6,7 +6,7 @@ import type { Captions, Style } from "renderer/src/types";
 type Job = { id: string; status: string; progress: number; error: string | null };
 
 const STAGE_LABELS: Record<string, string> = {
-  queued: "Waiting for the previous video to finish", extracting: "Extracting audio", transcribing: "Transcribing speech",
+  queued: "Getting ready (first run loads the AI model)", extracting: "Extracting audio", transcribing: "Transcribing speech",
   captioning: "Building captions", rendering: "Rendering video",
 };
 

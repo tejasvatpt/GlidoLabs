@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app import jobs
 from app.config import REPO_ROOT, load_style, settings, style_names
 from app.media.ingest import ALLOWED_EXTENSIONS
+from app.media.audio import vad_model
 from app.transcription.sources import apex_pipeline
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
@@ -21,7 +22,8 @@ CHUNK = 1024 * 1024
 async def lifespan(_):
     settings.jobs_dir.mkdir(parents=True, exist_ok=True)
     jobs.sweep_old_jobs()
-    jobs.worker.submit(apex_pipeline)  # load the model now so the first upload doesn't wait for it
+    for load in (vad_model, apex_pipeline):  # load and warm models now so the first upload doesn't wait
+        jobs.worker.submit(load)
     yield
 
 
