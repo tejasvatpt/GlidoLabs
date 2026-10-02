@@ -1,125 +1,203 @@
 # Glido Labs — AI Caption Engine
 
-Upload a video, get word-timed Roman-Hinglish captions in the **Eclipse** style, preview them live, export an MP4.
+Glido Labs puts **animated captions** on your videos, automatically.
 
-```
-Video ─► FFmpeg ─► ASR / script ─► Word[] + timings ─► features ─► roles ─► groups ─► captions.json ─► Remotion ─► MP4
-```
+You upload a video → it listens to the speech → writes the words in **Roman Hinglish** (like *"bhai ye bahut accha hai"*) → shows a live preview in the **Eclipse** caption style → you download the finished MP4.
+
+It works with **English, Hindi and Hinglish** (Hindi + English mixed), and everything runs **free on your own computer**.
+
+---
 
 ## Quick start
 
-Requirements: Python 3.12+, Node 20+, FFmpeg on PATH, ideally an NVIDIA GPU with the CUDA build of PyTorch
-(`pip install torch --index-url https://download.pytorch.org/whl/cu126`). A 30 s clip transcribes in ~15 s on an
-RTX 2050 (2.3 GB VRAM); on CPU it needs ~3 GB of free RAM and a few minutes.
+### 1. What you need
+
+| Tool | Why | Get it |
+| --- | --- | --- |
+| **Python 3.12+** | runs the backend and the AI model | [python.org](https://www.python.org/downloads/) |
+| **Node.js 20+** | runs the caption renderer and the website | [nodejs.org](https://nodejs.org/) |
+| **FFmpeg** | reads and writes video/audio | [ffmpeg.org](https://ffmpeg.org/download.html) (must work when you type `ffmpeg` in a terminal) |
+| **Git** | to copy this repo | [git-scm.com](https://git-scm.com/) |
+| NVIDIA GPU *(optional, recommended)* | makes transcription much faster | any card with 4 GB+ |
+
+> No GPU? It still works on CPU, just slower (needs ~3 GB of free RAM).
+
+### 2. Copy the repo
+
+```bash
+git clone https://github.com/tejasvatpt/GlidoLabs.git
+cd GlidoLabs
+```
+
+### 3. Set up the backend (Python)
 
 ```bash
 cp .env.example .env
 python -m venv backend/.venv
-backend/.venv/Scripts/pip install -r backend/requirements.txt   # macOS/Linux: backend/.venv/bin/pip
-backend/.venv/Scripts/pip install --no-deps silero-vad          # voice detector; --no-deps keeps your CUDA torch
+```
+
+Activate it:
+
+- **Windows (PowerShell):** `backend\.venv\Scripts\Activate.ps1`
+- **Mac / Linux:** `source backend/.venv/bin/activate`
+
+Install the packages:
+
+```bash
+pip install -r backend/requirements.txt
+pip install --no-deps silero-vad
+```
+
+**Have an NVIDIA GPU?** Also run this (it swaps in the GPU version of PyTorch):
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu126
+```
+
+### 4. Set up the website and renderer (Node)
+
+```bash
 npm install
 npm run build --workspace frontend
 ```
 
-Run (Windows PowerShell; 5.1 has no `&&`):
+### 5. Run it
 
-```powershell
+```bash
 cd backend
-.\.venv\Scripts\uvicorn app.main:app --port 8000
+uvicorn app.main:app --port 8000
 ```
 
-Open http://127.0.0.1:8000. The server loads the Apex model at startup (~1.6 GB download the first time).
-Development: `npm run dev --workspace frontend` (Vite, proxies the API) and `npm run studio --workspace renderer`.
+Open **http://127.0.0.1:8000** in your browser. That's it! 🎉
 
-## Structure
+> The first start downloads the speech model (~1.6 GB) once. Wait until the terminal is quiet, then upload a video.
+
+### 6. Use it
+
+1. Drop a video (MP4, MOV, WebM or MKV).
+2. Click **Generate captions** and wait a few seconds.
+3. Watch the **preview**.
+4. Click **Export MP4**, then **Download**.
+
+Want to test quickly? Try `samples/demo_input.mp4`.
+
+---
+
+## How it works (the simple version)
+
+```
+Video → get the audio → AI writes the words + timings → pick groups, highlights and hooks → draw captions → MP4
+```
+
+The project has **4 parts**, and each one does one job:
+
+| Part | Folder | What it does |
+| --- | --- | --- |
+| 🎧 **Listener** | `backend/app/transcription` | Turns speech into words with exact timings |
+| 🧠 **Caption brain** | `backend/app/captions` | Decides how words are grouped, which word is highlighted, and which words become big "hooks" |
+| 🎨 **Renderer** | `renderer/` | Draws the captions in the Eclipse style and makes the MP4 |
+| 🖥️ **Website + API** | `frontend/`, `backend/app/main.py` | Upload, progress bar, preview, download |
+
+They talk to each other through one simple file: **`captions.json`** (the words, their times and their roles).
+So you can swap any part without breaking the others.
+
+---
+
+## The modules, one by one
+
+### 🎧 Listener — speech to words
+
+**Model:** [Whisper-Hindi2Hinglish-Apex](https://huggingface.co/Oriserve/Whisper-Hindi2Hinglish-Apex) (free, open source)
+
+**Why this model?**
+- It's built on OpenAI's Whisper and **fine-tuned on Indian Hindi + English speech**.
+- It writes Hindi in **Roman letters** (*"pehli baar"*), not Devanagari (*"पहली बार"*), and it doesn't translate into English.
+- That's exactly how people write Hinglish on social media, which is what we want.
+- It's small enough to run on a 4 GB laptop GPU.
+
+**Extra helpers:**
+- **Spelling fix:** turns model spellings into common ones (*mainne → maine, yah → ye, lie → liye*).
+- **Voice detector (Silero VAD):** finds where someone is *actually talking*, so captions never show up over music, rain or silence, and disappear when speech stops.
+
+**Already have the script?** (e.g. a video Glido generated)
+Paste it in the "I have the script" box. The captions use your exact words; the audio is only used for timing.
+
+### 🧠 Caption brain — how captions are planned
+
+For every word, it looks at:
+
+- **Loudness** compared to nearby words
+- **How long** the word is stretched
+- **Pauses** before it
+- **How meaningful** the word is (long, rare words like *"obsidian"* matter more than *"hai"*)
+
+Then it decides:
+
+| Role | What you see |
+| --- | --- |
+| **Normal** | white text at the bottom; turns yellow while it's spoken |
+| **Emphasis** | bigger, uppercase word inside the caption |
+| **Hook** | a huge word at the top of the screen (like **OBSIDIAN**) |
+
+Captions are split at natural **pauses**, at the end of sentences, or when they get too wide for the screen.
+
+### 🎨 Renderer — drawing the captions
+
+Built with **[Remotion](https://www.remotion.dev/)** (React for videos).
+
+- The **same code** draws the live preview and the final MP4, so what you see is what you get.
+- When exporting, it draws **only the captions**, and **FFmpeg** puts them on top of your video. That's what makes export fast.
+
+### 🎨 The Eclipse style
+
+All the looks live in one file: **`styles/eclipse/style.json`**. It was copied frame by frame from the reference video:
+
+- Bold white captions near the bottom, the spoken word turns **yellow**.
+- Hooks appear **yellow on a soft yellow box** for about half a second, then turn **white**.
+- Fonts: **Montserrat** and **Anton** (both free, included).
+
+Want a new style? Copy the `eclipse` folder, change the numbers. No code needed.
+
+---
+
+## Project map
 
 ```
 backend/app/
-  main.py, jobs.py, config.py      API, one background worker, settings + style loading
-  media/        probe.py (ffprobe, WAV)  ingest.py (validate, job folder)  audio.py (loudness, Silero speech regions)
-  transcription/ sources.py (Apex ASR, script path)  cleanup.py (respell, snap to speech, align)  spelling.json
-  captions/     features.py → emphasis.py → segmenter.py (+ layout.py text measuring) → build.py
-  rendering.py  runs renderer/render.mjs
-renderer/       render.mjs (export), src/CaptionedVideo.tsx (the Eclipse renderer), Root.tsx, types.ts
-frontend/src/   App.tsx (upload → progress → live preview → export)
-styles/eclipse/ style.json + bundled OFL fonts
+  main.py            the API (upload, status, export, download)
+  jobs.py            runs each video job in the background
+  media/             reads videos, extracts audio, finds speech
+  transcription/     speech → words (Apex), spelling fixes, timing cleanup
+  captions/          features → roles → groups → captions.json
+renderer/            Remotion caption renderer + MP4 export
+frontend/            the website
+styles/eclipse/      the Eclipse look + fonts
+samples/             demo input and output videos
 ```
 
-The renderer only reads `captions.json` + `style.json` + the video; it knows nothing about ASR or scoring.
+---
 
-### Two input paths
+## Results
 
-- **Uploaded video (no script):** Whisper-Hindi2Hinglish-Apex transcribes in Roman script with word timestamps, then
-  `spelling.json` maps Apex spellings to common social-media Hinglish (*mainne → maine, yah → ye, lie → liye*).
-- **Glido-generated video (script known):** caption text is the script word for word; audio only supplies timing
-  (script words are matched onto heard-word timestamps). In production the TTS engine's word boundaries plug in here.
+Tested on the reference video:
 
-Both paths clip every word to speech found by [Silero VAD](https://github.com/snakers4/silero-vad) (MIT), which
-ignores music, rain and other noise. Words with no speech under them are dropped and groups end when the last word
-ends, so captions appear only while someone is talking. Another ASR only has to return `Word[]`.
+- ✅ Roman Hinglish only, no Devanagari
+- ✅ Word timings within about ±0.2 s of the original captions
+- ✅ Picks the same hooks as the reference (**OBSIDIAN**, **PISCES**) without being told
+- ⚡ 30 s of speech → captions in ~15 s on a laptop GPU
+- ⚡ 8 s video → MP4 in ~16 s
 
-### Export
+---
 
-Chrome (GPU drawing via ANGLE) renders only the captions as transparent frames; FFmpeg decodes the original video,
-overlays them and encodes H.264. The live preview uses the same composition with the video inside the browser.
-An 8 s clip exports in ~16 s, down from ~69 s when Chrome also had to decode and paint every video frame.
+## Tech used (all free)
 
-### Caption intelligence
-
-1. **Features** per word: loudness relative to neighbouring words, stretch (seconds per letter), pause before, and
-   lexical salience (length + English rarity from `wordfreq`; words barely attested in English, i.e. romanised Hindi, stay neutral).
-2. **Roles:** weighted score from `style.json`. Prosody can promote a word but never demote it (speakers often say key
-   words quieter). A **hook** must be a strong content word said only once in the video, within a per-minute budget and
-   a minimum gap; strong content words become **emphasis**. Optional `force_hooks` pins keywords. No word lists of hooks.
-3. **Grouping:** breaks on pauses ≥ 0.35 s, sentence punctuation, max words, rendered width and around hooks; merges
-   orphans, closes short gaps, guarantees hook read time. Line breaks use pixel widths measured with the real fonts.
-
-### Eclipse style (measured frame by frame)
-
-- Captions: Montserrat Bold, 5.8% of width, baseline at 80%; the spoken word turns yellow with a soft pill only
-  while it is spoken; emphasis words switch to Anton uppercase. Groups and highlights switch on hard cuts.
-- Hooks: Anton uppercase fitted to 86% width near the top; yellow on a translucent yellow box for 567 ms (17 frames
-  at 30 fps), then a hard cut to white without the box.
-
-All values are fractions of the frame in `styles/eclipse/style.json`; a new style is a new folder, no code changes.
-
-## Technology decisions
-
-| Area | Current (free, local) | Premium upgrade | Why |
-| --- | --- | --- | --- |
-| ASR | [Whisper-Hindi2Hinglish-Apex](https://huggingface.co/Oriserve/Whisper-Hindi2Hinglish-Apex) (Apache-2.0) | ElevenLabs Scribe, AssemblyAI, Sarvam Saaras | Only open model found that outputs Roman Hinglish; fits a 4 GB GPU |
-| Word timing | Whisper timestamps clipped to Silero VAD speech; script mapping | CTC forced alignment, TTS word boundaries | Tiny local model, robust to background noise |
-| Rendering | [Remotion](https://www.remotion.dev/docs/license) 4.x (pinned) | Remotion Lambda | One React composition for live preview and MP4; free for individuals and companies of up to 3 people |
-| Media | FFmpeg | — | Probe, audio, encode |
-| Fonts | Montserrat, Anton (SIL OFL, bundled) | — | Closest open match to Eclipse |
-| Storage | Local `storage/jobs/` (24 h cleanup) | S3 / R2 | No database needed |
-
-Model-author benchmarks use different test sets and are not comparable; the numbers below are our own small test.
-
-## Results on the reference
-
-First 20 s of `Eclipse.mp4`, ground truth typed from its burnt-in captions:
-
-| Check | Result |
+| Job | Tool |
 | --- | --- |
-| Script | Roman only |
-| Word error rate | 0.286 raw Apex → 0.036 after the spelling map (the map was partly built from this clip, so expect less on new videos) |
-| Word timing | within ~±0.2 s of the reference's highlight changes |
-| Speed | 3.9 s for 20 s of audio on an RTX 2050 |
-| Hooks on the full clip | OBSIDIAN (11.9 s) and PISCES (22.7 s), the same hooks Eclipse uses, plus FLEXIBLE (Eclipse emphasises it) |
+| Speech to text | Whisper-Hindi2Hinglish-Apex |
+| Finding speech | Silero VAD |
+| Video and audio | FFmpeg |
+| Drawing captions | Remotion (free for individuals and small teams) |
+| Backend | Python + FastAPI |
+| Website | React + Vite |
 
-Apex ships without Whisper's word-timing heads, so it reuses large-v3-turbo's (same architecture). Encoder attention
-maps are switched off during word timing, cutting VRAM from 5.2 to 2.3 GB.
-
-## Samples
-
-- `samples/demo_input.mp4` — the Hinglish script in `samples/demo_script.txt`, read by an offline Indian-English voice over drone footage.
-- `samples/demo_output.mp4` — exported by the app through the script path.
-
-The Eclipse reference already has captions burned in, so it is used only as the style reference.
-
-## Limitations
-
-- The spelling map covers common Apex spellings only; new words keep Apex's spelling.
-- Whisper timestamps can drift ~0.1–0.2 s on fast speech; a forced aligner is the next upgrade.
-- Hooks are heuristic; very flat delivery or very short clips yield fewer hooks (tune `hookThreshold`).
+**Going pro later?** Swap in a paid speech API (ElevenLabs, Sarvam, AssemblyAI), cloud rendering (Remotion Lambda) and cloud storage (S3). The rest of the project stays the same.
