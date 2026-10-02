@@ -8,6 +8,12 @@ You upload a video → it listens to the speech → writes the words in **Roman 
 
 It works with **English, Hindi and Hinglish** (Hindi + English mixed), and everything runs **free on your own computer**.
 
+### 🎬 Demo
+
+[![CapSync demo: upload, captions, preview, export](docs/demo.gif)](docs/demo.mp4)
+
+*Click the preview to watch the full demo video (upload → captions → preview → export).*
+
 ---
 
 ## Quick start
