@@ -1,6 +1,8 @@
-# Glido Labs — AI Caption Engine
+# Glido Labs Assignment
 
-Glido Labs puts **animated captions** on your videos, automatically.
+## CapSync — Hinglish Caption Engine
+
+CapSync puts **animated captions** on your videos, automatically.
 
 You upload a video → it listens to the speech → writes the words in **Roman Hinglish** (like *"bhai ye bahut accha hai"*) → shows a live preview in the **Eclipse** caption style → you download the finished MP4.
 
@@ -119,7 +121,7 @@ So you can swap any part without breaking the others.
 - **Spelling fix:** turns model spellings into common ones (*mainne → maine, yah → ye, lie → liye*).
 - **Voice detector (Silero VAD):** finds where someone is *actually talking*, so captions never show up over music, rain or silence, and disappear when speech stops.
 
-**Already have the script?** (e.g. a video Glido generated)
+**Already have the script?** (e.g. an AI-generated video where you wrote the voice-over)
 Paste it in the "I have the script" box. The captions use your exact words; the audio is only used for timing.
 
 ### 🧠 Caption brain — how captions are planned
