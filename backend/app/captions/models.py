@@ -24,7 +24,6 @@ class EngineConfig(BaseModel):
     hold_s: float
     gap_fill_s: float
     hook_min_s: float
-    hook_lead_s: float
     min_letters: int
     weights: Weights
     emphasis_threshold: float

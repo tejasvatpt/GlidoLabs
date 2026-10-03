@@ -58,9 +58,7 @@ def segment(words: list[ScoredWord], cfg: EngineConfig, measure: TextMeasure) ->
     for layer in ("normal", "hook"):
         same = [g for g in groups if g.layer == layer]
         for g, nxt in zip(same, same[1:] + [None]):
-            if layer == "hook":  # appears just before its word, readable for hookMinS, never beyond the speech after it
-                earlier = [w.start for w in words if w.start < g.start]
-                g.start = round(max(g.start - cfg.hook_lead_s, earlier[-1] if earlier else g.start), 3)
+            if layer == "hook":  # rises exactly when its word is spoken, readable for hookMinS, never beyond the speech after it
                 speech_end = max(w.end for w in words if w.start < g.words[0].start + cfg.hook_min_s)
                 g.end = min(max(g.end, g.words[0].start + cfg.hook_min_s), speech_end)
             if nxt:

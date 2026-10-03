@@ -37,7 +37,6 @@
     "holdS": 0.0,
     "gapFillS": 0.25,
     "hookMinS": 1.0,
-    "hookLeadS": 0.4,
     "minLetters": 4,
     "weights": { "energy": 0.25, "stretch": 0.15, "pause": 0.1, "lexical": 0.8 },
     "emphasisThreshold": 0.7,
