@@ -11,8 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from app import jobs
 from app.config import REPO_ROOT, load_style, settings, style_names
 from app.media.ingest import ALLOWED_EXTENSIONS
-from app.media.audio import vad_model
-from app.transcription.sources import apex_pipeline
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 CHUNK = 1024 * 1024
@@ -22,12 +20,11 @@ CHUNK = 1024 * 1024
 async def lifespan(_):
     settings.jobs_dir.mkdir(parents=True, exist_ok=True)
     jobs.sweep_old_jobs()
-    for load in (vad_model, apex_pipeline):  # load and warm models now so the first upload doesn't wait
-        jobs.worker.submit(load)
+    jobs.warm_up()
     yield
 
 
-app = FastAPI(title="Glido Labs", lifespan=lifespan)
+app = FastAPI(title="CapSync", lifespan=lifespan)
 
 
 def get_job(job_id: str) -> jobs.Job:

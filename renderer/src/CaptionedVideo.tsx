@@ -88,7 +88,7 @@ export const CaptionedVideo = (props: CaptionProps) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const { width, height } = props.captions.video;
-  const layer = { ...props, t: frame / fps, width, height };
+  const layer = { ...props, t: (props.frames?.[frame] ?? frame) / fps, width, height };
   return (
     <AbsoluteFill>
       <div style={{ position: "absolute", left: 0, width, height, overflow: "hidden" }}>

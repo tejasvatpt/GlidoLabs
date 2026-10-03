@@ -16,7 +16,7 @@ export const Root = () => (
     defaultProps={defaults}
     calculateMetadata={({ props }) => {
       const { fps, width, height, duration } = props.captions.video;
-      return { fps, width: width * 2, height, durationInFrames: Math.ceil(duration * fps) };
+      return { fps, width: width * 2, height, durationInFrames: props.frames?.length ?? Math.ceil(duration * fps) };
     }}
   />
 );

@@ -11,6 +11,11 @@ from app.config import REPO_ROOT
 RENDERER_DIR = REPO_ROOT / "renderer"
 
 
+def bundle_renderer() -> None:
+    """Build (or reuse) the cached Remotion bundle so the first export doesn't pay for it."""
+    subprocess.run(["node", "render.mjs", "--bundle"], cwd=RENDERER_DIR, check=True, capture_output=True)
+
+
 def render_video(props: dict, video: Path, mask: Path, output: Path, on_progress: Callable[[float], None]) -> Path:
     props_path = output.with_name("props.json")
     props_path.write_text(json.dumps(props), encoding="utf-8")

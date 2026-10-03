@@ -33,4 +33,5 @@ export type Style = {
   };
 };
 
-export type CaptionProps = { captions: Captions; style: Style };
+// frames: optional list of source frames to draw (one per distinct caption state); default draws every frame
+export type CaptionProps = { captions: Captions; style: Style; frames?: number[] };
