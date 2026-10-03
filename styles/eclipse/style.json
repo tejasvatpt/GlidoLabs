@@ -6,9 +6,9 @@
     "hook": { "family": "Anton", "file": "fonts/Anton-Regular.ttf", "weight": 400 }
   },
   "caption": {
-    "fontSize": 0.058,
+    "fontSize": 0.0667,
     "lineHeight": 1.18,
-    "wordGap": 0.28,
+    "wordGap": 0.2,
     "baselineY": 0.8,
     "maxWidth": 0.86,
     "color": "#FFFFFF",
@@ -19,13 +19,16 @@
   },
   "hook": {
     "fontSize": 0.34,
-    "maxWidth": 0.86,
-    "topY": 0.125,
-    "settleMs": 567,
+    "maxWidth": 0.87,
+    "headOverlap": 0.45,
+    "minTopY": 0.04,
+    "shortWordWidth": 0.6,
+    "shortWordDrop": 0.35,
+    "sideMarginX": 0.06,
     "color": "#FFFFFF",
     "accentColor": "#FFE81A",
     "shadow": "0 0.03em 0.12em rgba(0,0,0,0.45)",
-    "box": { "color": "rgba(255, 221, 0, 0.38)", "radius": 0.02, "paddingX": 0.02, "paddingY": 0.008 }
+    "box": { "color": "rgba(255, 221, 0, 0.38)", "radius": 0.02, "paddingX": 0.055, "paddingY": 0.037 }
   },
   "engine": {
     "maxWords": 4,
@@ -34,6 +37,7 @@
     "holdS": 0.0,
     "gapFillS": 0.25,
     "hookMinS": 1.0,
+    "hookLeadS": 0.4,
     "minLetters": 4,
     "weights": { "energy": 0.25, "stretch": 0.15, "pause": 0.1, "lexical": 0.8 },
     "emphasisThreshold": 0.7,
@@ -42,6 +46,6 @@
     "hookMinLexical": 0.6,
     "hookStemLetters": 5,
     "hookMinGapS": 4.0,
-    "hooksPerMinute": 4
+    "hooksPerMinute": 6
   }
 }

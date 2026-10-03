@@ -1,20 +1,16 @@
 import { useEffect, useState } from "react";
-import { Player } from "@remotion/player";
-import { CaptionedVideo } from "renderer/src/CaptionedVideo";
-import type { Captions, Style } from "renderer/src/types";
 
 type Job = { id: string; status: string; progress: number; error: string | null };
 
-const STAGE_LABELS: Record<string, string> = {
-  queued: "Getting ready (first run loads the AI model)", extracting: "Extracting audio", transcribing: "Transcribing speech",
-  captioning: "Building captions", rendering: "Rendering video",
+const STAGES: Record<string, string> = {
+  queued: "Getting ready (first run loads the AI models)", preparing: "Converting to vertical UGC layout",
+  transcribing: "Transcribing speech", captioning: "Finding the speaker and planning captions", rendering: "Rendering video",
 };
 
-const getJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
-  const res = await fetch(url, init);
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.detail ?? "Request failed");
-  return body;
+const getJob = async (id: string): Promise<Job> => {
+  const res = await fetch(`/api/jobs/${id}`);
+  if (!res.ok) throw new Error("Job not found");
+  return res.json();
 };
 
 const upload = (form: FormData, onProgress: (p: number) => void) =>
@@ -36,13 +32,11 @@ export const App = () => {
   const [job, setJob] = useState<Job | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [preview, setPreview] = useState<{ captions: Captions; style: Style } | null>(null);
-
-  const busy = job && !["ready", "done", "error"].includes(job.status);
+  const busy = job && !["done", "error"].includes(job.status);
 
   useEffect(() => {
     const id = location.hash.match(/job=(\w+)/)?.[1];
-    if (id) getJson<Job>(`/api/jobs/${id}`).then(setJob).catch(() => (location.hash = ""));
+    if (id) getJob(id).then(setJob).catch(() => (location.hash = ""));
   }, []);
 
   useEffect(() => {
@@ -51,16 +45,9 @@ export const App = () => {
 
   useEffect(() => {
     if (!busy) return;
-    const timer = setInterval(() => getJson<Job>(`/api/jobs/${job.id}`).then(setJob).catch((e) => setError(e.message)), 1200);
+    const timer = setInterval(() => getJob(job.id).then(setJob).catch((e) => setError(e.message)), 1200);
     return () => clearInterval(timer);
   }, [busy, job?.id]);
-
-  useEffect(() => {
-    if (!job || !["ready", "done"].includes(job.status) || preview) return;
-    getJson<Captions>(`/api/jobs/${job.id}/captions`)
-      .then(async (captions) => setPreview({ captions, style: await getJson<Style>(`/api/styles/${captions.style}`) }))
-      .catch((e) => setError(e.message));
-  }, [job?.status]);
 
   const start = async () => {
     if (!file) return;
@@ -68,31 +55,26 @@ export const App = () => {
     form.append("file", file);
     form.append("script", script);
     setError("");
-    setPreview(null);
     try {
-      const id = await upload(form, setUploadProgress);
-      setJob({ id, status: "queued", progress: 0, error: null });
+      setJob({ id: await upload(form, setUploadProgress), status: "queued", progress: 0, error: null });
     } catch (e) {
       setError((e as Error).message);
     }
     setUploadProgress(null);
   };
 
-  const exportVideo = async () => {
-    await getJson(`/api/jobs/${job!.id}/export`, { method: "POST" }).catch((e) => setError(e.message));
-    setJob({ ...job!, status: "rendering", progress: 0 });
-  };
-
   const reset = () => {
-    [setFile(null), setJob(null), setPreview(null), setError(""), setScript("")];
+    setFile(null);
+    setJob(null);
+    setError("");
+    setScript("");
     history.replaceState(null, "", location.pathname);
   };
-  const video = preview?.captions.video;
 
   return (
     <main>
       <header>
-        <h1>Glido Labs</h1>
+        <h1>CapSync</h1>
         <p>AI captions in the Eclipse style</p>
       </header>
 
@@ -108,7 +90,7 @@ export const App = () => {
                 : <><strong>Drop a video here</strong><span>or click to choose MP4, MOV, WebM or MKV</span></>}
             </label>
             <details>
-              <summary>I have the script (Glido-generated video)</summary>
+              <summary>I have the script (AI-generated voice-over)</summary>
               <textarea rows={4} value={script} onChange={(e) => setScript(e.target.value)}
                 placeholder="Paste the exact script. Captions will use it word for word; audio only sets the timing." />
             </details>
@@ -120,23 +102,17 @@ export const App = () => {
 
         {busy && (
           <div className="status">
-            <strong>{STAGE_LABELS[job.status]}</strong>
+            <strong>{STAGES[job.status]}</strong>
             <div className="bar"><div style={{ width: `${Math.round(job.progress * 100)}%` }} /></div>
-            <span>{job.status === "transcribing" ? "This can take a minute on CPU." : `${Math.round(job.progress * 100)}%`}</span>
+            <span>{Math.round(job.progress * 100)}%</span>
           </div>
         )}
 
-        {preview && video && (
+        {job?.status === "done" && (
           <div className="preview">
-            <Player component={CaptionedVideo} controls
-              inputProps={{ videoSrc: `/media/${job!.id}/input`, ...preview }}
-              durationInFrames={Math.ceil(video.duration * video.fps)} fps={video.fps}
-              compositionWidth={video.width} compositionHeight={video.height}
-              style={{ width: "100%", maxHeight: "68vh", aspectRatio: `${video.width} / ${video.height}` }} />
+            <video src={`/api/jobs/${job.id}/video`} controls autoPlay playsInline />
             <div className="actions">
-              {job?.status === "done"
-                ? <a className="button" href={`/api/jobs/${job.id}/download`} download>Download MP4</a>
-                : !busy && <button onClick={exportVideo}>Export MP4</button>}
+              <a className="button" href={`/api/jobs/${job.id}/download`} download>Download MP4</a>
               <button className="secondary" onClick={reset}>New video</button>
             </div>
           </div>

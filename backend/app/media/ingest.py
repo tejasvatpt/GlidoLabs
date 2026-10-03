@@ -1,4 +1,4 @@
-"""Accept a video: validate it, create the job folder, extract 16 kHz audio."""
+"""Accept a video: validate it, convert it to the vertical UGC layout, extract 16 kHz audio."""
 
 import shutil
 import uuid
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.media.probe import MediaError, VideoInfo, extract_audio, probe
+from app.media.ugc import to_vertical
 
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv"}
 
@@ -42,8 +43,11 @@ def ingest(source: Path, jobs_dir: Path | None = None, job_id: str | None = None
     job_dir = (jobs_dir or settings.jobs_dir) / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     # Never reuse the user's file name in paths.
-    input_path = job_dir / f"input{source.suffix.lower()}"
-    shutil.copyfile(source, input_path)
+    original = job_dir / f"original{source.suffix.lower()}"
+    shutil.copyfile(source, original)
+    input_path = to_vertical(original, info, job_dir / "video.mp4")
+    original.unlink()
+    info = probe(input_path)
     audio_path = extract_audio(input_path, job_dir / "audio.wav")
 
     (job_dir / "video.json").write_text(info.model_dump_json(indent=2), encoding="utf-8")

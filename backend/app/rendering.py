@@ -11,10 +11,10 @@ from app.config import REPO_ROOT
 RENDERER_DIR = REPO_ROOT / "renderer"
 
 
-def render_video(props: dict, video: Path, output: Path, on_progress: Callable[[float], None]) -> Path:
+def render_video(props: dict, video: Path, mask: Path, output: Path, on_progress: Callable[[float], None]) -> Path:
     props_path = output.with_name("props.json")
     props_path.write_text(json.dumps(props), encoding="utf-8")
-    proc = subprocess.Popen(["node", "render.mjs", str(props_path), str(video), str(output)], cwd=RENDERER_DIR,
+    proc = subprocess.Popen(["node", "render.mjs", str(props_path), str(video), str(mask), str(output)], cwd=RENDERER_DIR,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
     tail = deque(maxlen=15)
     for line in proc.stdout:

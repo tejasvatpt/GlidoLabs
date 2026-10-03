@@ -7,5 +7,6 @@ numpy
 soundfile
 pillow
 wordfreq
+mediapipe
 torch
 transformers

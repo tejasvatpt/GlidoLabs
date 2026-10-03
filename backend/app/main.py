@@ -1,4 +1,4 @@
-"""HTTP API: upload -> captions (preview) -> export -> download."""
+"""HTTP API: upload -> processing (captions + render) -> preview -> download."""
 
 import uuid
 from contextlib import asynccontextmanager
@@ -71,34 +71,28 @@ def job_status(job_id: str):
 
 @app.get("/api/jobs/{job_id}/captions")
 def job_captions(job_id: str):
-    if get_job(job_id).status not in ("ready", "rendering", "done"):
+    path = jobs.job_dir(get_job(job_id).id) / "captions.json"
+    if not path.exists():
         raise HTTPException(409, "Captions are not ready yet.")
-    return jobs.captions(job_id)
+    return FileResponse(path, media_type="application/json")
 
 
-@app.post("/api/jobs/{job_id}/export")
-def export_job(job_id: str):
-    job = get_job(job_id)
-    if job.status not in ("ready", "done", "error") or not (jobs.job_dir(job_id) / "captions.json").exists():
-        raise HTTPException(409, "Job is not ready for export.")
-    jobs.worker.submit(jobs.export, jobs.save(job, status="rendering", progress=0, error=None))
-    return {"status": "rendering"}
+def output_file(job_id: str) -> Path:
+    job, output = get_job(job_id), jobs.job_dir(job_id) / "output.mp4"
+    if job.status != "done" or not output.exists():
+        raise HTTPException(409, "The video is not ready yet.")
+    return output
+
+
+@app.get("/api/jobs/{job_id}/video")
+def preview(job_id: str):
+    return FileResponse(output_file(job_id), media_type="video/mp4")
 
 
 @app.get("/api/jobs/{job_id}/download")
 def download(job_id: str):
-    job, output = get_job(job_id), jobs.job_dir(job_id) / "output.mp4"
-    if job.status != "done" or not output.exists():
-        raise HTTPException(409, "The video has not been exported yet.")
-    return FileResponse(output, media_type="video/mp4", filename=f"{Path(job.input_name).stem}_captioned.mp4")
-
-
-@app.get("/media/{job_id}/input")
-def media_input(job_id: str):
-    path = jobs.input_file(job_id) if job_id.isalnum() else None
-    if not path:
-        raise HTTPException(404, "Video not found.")
-    return FileResponse(path)
+    name = Path(get_job(job_id).input_name).stem
+    return FileResponse(output_file(job_id), media_type="video/mp4", filename=f"{name}_captioned.mp4")
 
 
 @app.get("/api/styles")

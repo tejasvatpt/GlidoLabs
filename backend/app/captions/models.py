@@ -24,6 +24,7 @@ class EngineConfig(BaseModel):
     hold_s: float
     gap_fill_s: float
     hook_min_s: float
+    hook_lead_s: float
     min_letters: int
     weights: Weights
     emphasis_threshold: float
@@ -56,6 +57,15 @@ class CaptionWord(BaseModel):
     end: float
     role: Role
     emphasis: float
+    display: str | None = None  # hook text as shown, e.g. "baarah" -> "12"
+
+
+class HookPosition(BaseModel):
+    """Fractions of the frame: x is the left edge (align "left") or the centre (align "center"); y is the text top."""
+    x: float
+    y: float
+    align: Literal["left", "center"]
+    font_size: float
 
 
 class CaptionGroup(BaseModel):
@@ -65,6 +75,7 @@ class CaptionGroup(BaseModel):
     end: float
     lines: list[list[int]]
     words: list[CaptionWord]
+    position: HookPosition | None = None
 
 
 class CaptionTrack(BaseModel):

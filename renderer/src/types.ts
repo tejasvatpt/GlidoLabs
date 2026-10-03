@@ -1,6 +1,13 @@
-export type CaptionWord = { text: string; start: number; end: number; role: "normal" | "emphasis" | "hook"; emphasis: number };
+export type CaptionWord = {
+  text: string; start: number; end: number; role: "normal" | "emphasis" | "hook"; emphasis: number; display?: string | null;
+};
 
-export type CaptionGroup = { id: number; layer: "normal" | "hook"; start: number; end: number; lines: number[][]; words: CaptionWord[] };
+export type HookPosition = { x: number; y: number; align: "left" | "center"; font_size: number };
+
+export type CaptionGroup = {
+  id: number; layer: "normal" | "hook"; start: number; end: number; lines: number[][]; words: CaptionWord[];
+  position?: HookPosition | null;
+};
 
 export type Captions = {
   version: number;
@@ -21,9 +28,9 @@ export type Style = {
     emphasis: { uppercase: boolean; scale: number; color: string };
   };
   hook: {
-    fontSize: number; maxWidth: number; topY: number; settleMs: number; color: string; accentColor: string; shadow: string;
+    color: string; accentColor: string; shadow: string;
     box: { color: string; radius: number; paddingX: number; paddingY: number };
   };
 };
 
-export type CaptionProps = { videoSrc: string; captions: Captions; style: Style };
+export type CaptionProps = { captions: Captions; style: Style };

@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { AbsoluteFill, cancelRender, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { fitText } from "@remotion/layout-utils";
-import { Video } from "@remotion/media";
 import type { CaptionGroup, CaptionProps, CaptionWord, Style } from "./types";
 
-// Eclipse animates with hard cuts: groups, highlights and the hook settle all switch on a single frame.
-const useTime = () => {
-  const { fps, width, height } = useVideoConfig();
-  return { t: useCurrentFrame() / fps, width, height };
-};
+// Two transparent layers side by side: hooks (left half) go behind the speaker, captions (right half) go on top.
+// FFmpeg splits them and composites: video -> hooks -> speaker cut-out -> captions. Eclipse uses hard cuts only.
+
+type LayerProps = CaptionProps & { t: number; width: number; height: number };
 
 const activeGroup = (groups: CaptionGroup[], layer: CaptionGroup["layer"], t: number) =>
   groups.find((g) => g.layer === layer && g.start <= t && t < g.end);
+
+const spoken = (w: CaptionWord, t: number) => w.start <= t && t < w.end;
 
 const useFonts = (style: Style) => {
   const [handle] = useState(() => delayRender("Loading fonts"));
@@ -44,57 +43,60 @@ const Word = ({ word, active, style }: { word: CaptionWord; active: boolean; sty
   );
 };
 
-const CaptionLayer = ({ captions, style }: CaptionProps) => {
-  const { t, width, height } = useTime();
+const CaptionLayer = ({ captions, style, t, width, height }: LayerProps) => {
   const group = activeGroup(captions.groups, "normal", t);
   if (!group) return null;
   const c = style.caption;
-  const active = group.words.findIndex((w) => w.start <= t && t < w.end);
   return (
     <div style={{
-      position: "absolute", left: "50%", top: c.baselineY * height, width: c.maxWidth * width,
+      position: "absolute", left: width / 2, top: c.baselineY * height, width: c.maxWidth * width,
       transform: "translate(-50%, -100%)", textAlign: "center", color: c.color, textShadow: c.shadow,
       fontFamily: style.fonts.caption.family, fontWeight: style.fonts.caption.weight,
       fontSize: c.fontSize * width, lineHeight: c.lineHeight,
     }}>
       {group.lines.map((line, i) => (
-        <div key={i}>{line.map((w) => <Word key={w} word={group.words[w]} active={w === active} style={style} />)}</div>
+        <div key={i}>{line.map((w) => <Word key={w} word={group.words[w]} active={spoken(group.words[w], t)} style={style} />)}</div>
       ))}
     </div>
   );
 };
 
-const HookLayer = ({ captions, style }: CaptionProps) => {
-  const { t, width, height } = useTime();
+// White while waiting, yellow on the translucent box only while the word is spoken (as in the reference).
+const HookLayer = ({ captions, style, t, width, height }: LayerProps) => {
   const group = activeGroup(captions.groups, "hook", t);
-  if (!group) return null;
+  if (!group?.position) return null;
   const { hook: h, fonts } = style;
-  const text = group.words.map((w) => w.text).join(" ").toUpperCase();
-  const fitted = fitText({ text, withinWidth: h.maxWidth * width, fontFamily: fonts.hook.family, fontWeight: fonts.hook.weight });
-  const settled = t - group.start >= h.settleMs / 1000;
+  const word = group.words[0];
+  const { x, y, align, font_size } = group.position;
+  const live = spoken(word, t);
+  const padX = h.box.paddingX * width, padY = h.box.paddingY * width;
   return (
-    <div style={{ position: "absolute", top: h.topY * height, width: "100%", display: "flex", justifyContent: "center" }}>
-      <div style={{
-        background: settled ? "transparent" : h.box.color, borderRadius: h.box.radius * width,
-        padding: `${h.box.paddingY * width}px ${h.box.paddingX * width}px`,
-        color: settled ? h.color : h.accentColor, textShadow: settled ? h.shadow : "none",
-        fontFamily: fonts.hook.family, fontWeight: fonts.hook.weight,
-        fontSize: Math.min(h.fontSize * width, fitted.fontSize), lineHeight: 1.05, whiteSpace: "nowrap",
-      }}>
-        {text}
-      </div>
+    <div style={{
+      position: "absolute", top: y * height - padY, left: x * width - (align === "left" ? padX : 0),
+      transform: align === "center" ? "translateX(-50%)" : undefined,
+      padding: `${padY}px ${padX}px`, borderRadius: h.box.radius * width, background: live ? h.box.color : "transparent",
+      color: live ? h.accentColor : h.color, textShadow: live ? "none" : h.shadow, whiteSpace: "nowrap",
+      fontFamily: fonts.hook.family, fontWeight: fonts.hook.weight, fontSize: font_size * width, lineHeight: 1,
+    }}>
+      {word.display ?? word.text.toUpperCase()}
     </div>
   );
 };
 
-// Preview passes the video; export passes none and gets transparent caption-only frames that FFmpeg overlays.
 export const CaptionedVideo = (props: CaptionProps) => {
   const fontsLoaded = useFonts(props.style);
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const { width, height } = props.captions.video;
+  const layer = { ...props, t: frame / fps, width, height };
   return (
-    <AbsoluteFill style={{ backgroundColor: props.videoSrc ? "black" : "transparent" }}>
-      {props.videoSrc && <Video src={props.videoSrc} />}
-      {fontsLoaded && <CaptionLayer {...props} />}
-      {fontsLoaded && <HookLayer {...props} />}
+    <AbsoluteFill>
+      <div style={{ position: "absolute", left: 0, width, height, overflow: "hidden" }}>
+        {fontsLoaded && <HookLayer {...layer} />}
+      </div>
+      <div style={{ position: "absolute", left: width, width, height, overflow: "hidden" }}>
+        {fontsLoaded && <CaptionLayer {...layer} />}
+      </div>
     </AbsoluteFill>
   );
 };
