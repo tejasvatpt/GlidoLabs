@@ -54,7 +54,10 @@ def save(job: Job, **changes) -> Job:
 
 def load(job_id: str) -> Job | None:
     path = job_dir(job_id) / "job.json"
-    return Job.model_validate_json(path.read_text(encoding="utf-8")) if job_id.isalnum() and path.exists() else None
+    try:
+        return Job.model_validate_json(path.read_text(encoding="utf-8")) if job_id.isalnum() and path.exists() else None
+    except ValueError:  # job saved by an older version of the app
+        return None
 
 
 def run_step(job: Job, fn):
@@ -97,7 +100,7 @@ def process(job: Job, upload: Path):
 def sweep_old_jobs(max_age_h: float = 24):
     cutoff = time.time() - max_age_h * 3600
     for folder in settings.jobs_dir.glob("*"):
-        if folder.is_dir() and folder.stat().st_mtime < cutoff:
+        if folder.is_dir() and (folder.stat().st_mtime < cutoff or not load(folder.name)):
             shutil.rmtree(folder, ignore_errors=True)
         elif (job := load(folder.name)) and job.status not in ("done", "error"):
             save(job, status="error", error="Interrupted by a server restart. Please upload again.")
