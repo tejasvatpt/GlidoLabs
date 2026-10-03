@@ -15,6 +15,7 @@ It works with **English, Hindi and Hinglish** (Hindi + English mixed), and every
 
 ### 🎬 Demo
 
+https://github.com/user-attachments/assets/da5d7757-ca01-403c-8542-e104d33fb578
 [![CapSync output: captions in front, hook word behind the speaker]]([samples/demo_output.mp4](https://github.com/user-attachments/assets/da5d7757-ca01-403c-8542-e104d33fb578))
 
 *Output for `samples/demo_input.mp4`: notice the big yellow word sits behind the character's hair. Click for the full video.*
