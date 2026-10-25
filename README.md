@@ -3,9 +3,8 @@
 
 
 
-# Glido Labs Assignment
 
-## CapSync — Hinglish Caption Engine
+#CapSync — Hinglish Caption Engine
 
 CapSync puts **animated captions** on your videos, automatically.
 
